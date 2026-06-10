@@ -1,0 +1,19 @@
+{
+  "name": "sync-server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20 <24"
+  },
+  "scripts": {
+    "sync-schema": "cp ../src/domain/db/schema.sql schemas/ruleon",
+    "migrate": "node migrateDbs.mjs",
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "@vlcn.io/ws-server": "^0.2.3",
+    "dotenv": "^16.6.1",
+    "express": "^4.21.2"
+  }
+}

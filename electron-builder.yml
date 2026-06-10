@@ -1,0 +1,17 @@
+appId: app.ruleon.desktop
+productName: Ruleon
+icon: build/icons/512x512.png
+directories:
+  output: release
+  buildResources: build
+files:
+  - dist/**
+  - dist-electron/**
+
+# Default Linux targets (snap + AppImage) build in parallel and can race on
+# ~/.cache/electron-builder/appimage downloads. Use one portable target.
+linux:
+  target:
+    - AppImage
+  category: Office
+  icon: build/icons
