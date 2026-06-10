@@ -1,5 +1,7 @@
 appId: app.ruleon.desktop
 productName: Ruleon
+# CI sets GITHUB_TOKEN; we publish via workflow artifacts / softprops/action-gh-release.
+publish: null
 icon: build/icons/512x512.png
 directories:
   output: release
