@@ -18,6 +18,8 @@ npm run dev:electron
 npm run build:electron   # Linux AppImage → release/
 ```
 
+**Download:** every push to `master` builds a Linux AppImage — open [Actions → Build](https://github.com/davy1ex/ruleon/actions/workflows/build.yml), pick the latest run, download the artifact. Tagged releases (`v*`) are published under [Releases](https://github.com/davy1ex/ruleon/releases).
+
 ## Scripts
 
 | Command | Description |

@@ -1,0 +1,31 @@
+name: Build
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  appimage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install AppImage dependencies
+        run: sudo apt-get update && sudo apt-get install -y libfuse2
+
+      - run: npm ci
+
+      - run: npm run build:electron
+
+      - name: Upload AppImage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Ruleon-${{ github.sha }}
+          path: release/*.AppImage
+          if-no-files-found: error
