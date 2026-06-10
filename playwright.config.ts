@@ -1,5 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const serverUrl = "http://127.0.0.1:5173";
+
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: false,
@@ -8,7 +10,7 @@ export default defineConfig({
   workers: 1,
   reporter: process.env.CI ? "github" : "list",
   use: {
-    baseURL: "http://127.0.0.1:5173",
+    baseURL: serverUrl,
     trace: "on-first-retry",
   },
   projects: [
@@ -18,12 +20,9 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "npm run dev",
-    url: "http://127.0.0.1:5173",
+    command: process.env.CI ? "npm run preview:e2e" : "npm run dev:e2e",
+    url: serverUrl,
     reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-    env: {
-      VITE_E2E: "1",
-    },
+    timeout: process.env.CI ? 60_000 : 120_000,
   },
 });

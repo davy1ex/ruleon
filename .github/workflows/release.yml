@@ -29,6 +29,8 @@ jobs:
 
       - run: npm run test:logic
 
+      - run: npm run build:e2e
+
       - run: npm run test:e2e
         env:
           CI: true
