@@ -54,16 +54,27 @@ export function blockRows(tree: Locator): Locator {
   return tree.locator(sel.row);
 }
 
-export function focusedEditor(tree: Locator): Locator {
-  return tree.locator(sel.editor).first();
+export function focusedEditor(page: Page): Locator {
+  return page.getByTestId("block-editor");
+}
+
+export async function openBlockEditor(
+  row: Locator,
+  page: Page,
+): Promise<Locator> {
+  const editor = row.locator(sel.editor);
+  await editor.click();
+  await focusedEditor(page).waitFor({ state: "visible" });
+  return focusedEditor(page);
 }
 
 export async function focusEmptyBlock(page: Page): Promise<Locator> {
   const tree = todayBlockTree(page);
   await tree.waitFor({ state: "visible" });
 
-  const editor = focusedEditor(tree);
+  const editor = tree.locator(sel.editor).first();
   await editor.click();
+  await editor.waitFor({ state: "visible" });
   return editor;
 }
 

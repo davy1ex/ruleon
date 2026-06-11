@@ -13,7 +13,6 @@ import { Sidebar } from "./ui/Sidebar";
 import { ThemeInjector } from "./ui/ThemeInjector";
 import { XpToast } from "./ui/XpToast";
 import { useWorkspaceShortcuts } from "./ui/useWorkspaceShortcuts";
-
 export default function App() {
   useWorkspaceShortcuts();
   const isMobile = useIsMobile();

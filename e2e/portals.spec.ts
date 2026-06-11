@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import {
   blockRows,
   focusEmptyBlock,
+  openBlockEditor,
   todayBlockTree,
   waitForAppReady,
 } from "./helpers/app";
@@ -29,9 +30,7 @@ test.describe("Query portals E2E", () => {
     await page.keyboard.press("Control+Enter");
     await expect(rows.nth(0).locator(sel.taskCheckbox)).toBeVisible();
 
-    await rows.nth(1).click();
-    const portalEditor = rows.nth(1).locator(sel.editor);
-    await portalEditor.click();
+    const portalEditor = await openBlockEditor(rows.nth(1), page);
     await portalEditor.fill("{{query: PortalTarget}}");
     await page.waitForTimeout(800);
 

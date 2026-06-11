@@ -2,6 +2,8 @@ import { expect, test } from "@playwright/test";
 import {
   blockRows,
   focusEmptyBlock,
+  focusedEditor,
+  openBlockEditor,
   pressAtBlockStart,
   resetBrowserStorage,
   todayBlockTree,
@@ -53,7 +55,7 @@ test.describe("Outliner E2E", () => {
     const parentId = await parentRow.getAttribute("data-block-id");
     expect(parentId).toBeTruthy();
 
-    await childRow.locator(sel.editor).click();
+    await openBlockEditor(childRow, page);
     await page.keyboard.press("Tab");
 
     await expect(childRow).toHaveAttribute("data-depth", "1");
@@ -72,13 +74,12 @@ test.describe("Outliner E2E", () => {
     const rows = blockRows(tree);
     await expect(rows).toHaveCount(2);
 
-    const secondEditor = rows.nth(1).locator(sel.editor);
-    await secondEditor.click();
+    const secondEditor = await openBlockEditor(rows.nth(1), page);
     await secondEditor.pressSequentially("World");
-    await expect(secondEditor).toHaveValue("World");
+    await expect(focusedEditor(page)).toHaveValue("World");
 
-    await pressAtBlockStart(secondEditor);
-    await secondEditor.press("Backspace");
+    await pressAtBlockStart(focusedEditor(page));
+    await focusedEditor(page).press("Backspace");
 
     await expect(blockRows(tree)).toHaveCount(1);
     await expect(blockRows(tree).first()).toContainText("HelloWorld");

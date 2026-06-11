@@ -102,7 +102,7 @@ export async function prepareRootForEditing(
 type FeedRefreshGet = () => {
   currentRootId: string;
   nodesByRootId: Record<string, FlatOutlineNode[]>;
-  focusedId: string | null;
+  focusedNodeId: string | null;
   selectedIds: string[];
   journalHistoryIds: string[];
 };
@@ -123,18 +123,18 @@ function findNodeContent(
 function preserveFocusedNodeContent(
   freshNodesByRootId: Record<string, FlatOutlineNode[]>,
   currentNodesByRootId: Record<string, FlatOutlineNode[]>,
-  focusedId: string | null,
+  focusedNodeId: string | null,
 ): Record<string, FlatOutlineNode[]> {
-  if (!focusedId) {
+  if (!focusedNodeId) {
     return freshNodesByRootId;
   }
 
-  const preservedContent = findNodeContent(currentNodesByRootId, focusedId);
+  const preservedContent = findNodeContent(currentNodesByRootId, focusedNodeId);
   if (preservedContent === undefined) {
     return freshNodesByRootId;
   }
 
-  const incomingContent = findNodeContent(freshNodesByRootId, focusedId);
+  const incomingContent = findNodeContent(freshNodesByRootId, focusedNodeId);
   if (
     incomingContent !== undefined &&
     serializeForDb(incomingContent) === serializeForDb(preservedContent)
@@ -145,7 +145,7 @@ function preserveFocusedNodeContent(
   const result: Record<string, FlatOutlineNode[]> = {};
   for (const [rootId, nodes] of Object.entries(freshNodesByRootId)) {
     result[rootId] = nodes.map((node) =>
-      node.id === focusedId ? { ...node, content: preservedContent } : node,
+      node.id === focusedNodeId ? { ...node, content: preservedContent } : node,
     );
   }
   return result;
@@ -163,7 +163,7 @@ type FeedRefreshSet = (partial: {
   favoritesList?: PageListItem[];
   trashedPages?: TrashedPageItem[];
   inboxItemCount?: number;
-  focusedId?: string | null;
+  focusedNodeId?: string | null;
   selectedIds?: string[];
   portalResultsCache?: Record<string, FlatOutlineNode[] | undefined>;
   refreshGeneration?: number;
@@ -202,7 +202,7 @@ export async function runFeedRefresh(
       const nodesByRootId = preserveFocusedNodeContent(
         freshNodesByRootId,
         state.nodesByRootId,
-        state.focusedId,
+        state.focusedNodeId,
       );
       const visibleIds = new Set(
         Object.values(nodesByRootId).flatMap((nodes) =>
@@ -220,9 +220,9 @@ export async function runFeedRefresh(
         favoritesList,
         trashedPages,
         inboxItemCount,
-        focusedId:
-          state.focusedId && visibleIds.has(state.focusedId)
-            ? state.focusedId
+        focusedNodeId:
+          state.focusedNodeId && visibleIds.has(state.focusedNodeId)
+            ? state.focusedNodeId
             : newBlockId ?? null,
         selectedIds: state.selectedIds.filter((id) => visibleIds.has(id)),
       });
@@ -238,7 +238,7 @@ export async function runFeedRefresh(
     const nodesByRootId = preserveFocusedNodeContent(
       freshNodesByRootId,
       state.nodesByRootId,
-      state.focusedId,
+      state.focusedNodeId,
     );
     const linkedState = await resolveLinkedReferenceState(db, currentRootId);
     const visibleIds = new Set(
@@ -254,9 +254,9 @@ export async function runFeedRefresh(
       favoritesList,
       trashedPages,
       inboxItemCount,
-      focusedId:
-        state.focusedId && visibleIds.has(state.focusedId)
-          ? state.focusedId
+      focusedNodeId:
+        state.focusedNodeId && visibleIds.has(state.focusedNodeId)
+          ? state.focusedNodeId
           : null,
       selectedIds: state.selectedIds.filter((id) => visibleIds.has(id)),
     });

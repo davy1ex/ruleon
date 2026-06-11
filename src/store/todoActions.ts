@@ -22,7 +22,7 @@ type StoreGet = () => {
   nodesByRootId: Record<string, FlatOutlineNode[]>;
   linkedReferenceNodesById: Record<string, FlatOutlineNode[]>;
   portalResultsCache: Record<string, FlatOutlineNode[] | undefined>;
-  focusedId: string | null;
+  focusedNodeId: string | null;
   selectedIds: string[];
 };
 
@@ -85,7 +85,7 @@ function notifyTaskCompletions(
 }
 
 export function resolveToggleTargets(
-  state: { focusedId: string | null; selectedIds: string[] },
+  state: { focusedNodeId: string | null; selectedIds: string[] },
   nodeIdSet: Set<string>,
   explicitId?: string,
 ): string[] {
@@ -98,8 +98,8 @@ export function resolveToggleTargets(
     return [explicitId];
   }
 
-  if (state.focusedId && nodeIdSet.has(state.focusedId)) {
-    return [state.focusedId];
+  if (state.focusedNodeId && nodeIdSet.has(state.focusedNodeId)) {
+    return [state.focusedNodeId];
   }
 
   return [];

@@ -13,7 +13,7 @@ import { ensureEmptyBlock, isSystemTrashRootId } from "./journal";
 
 type PageNavigateSet = (partial: {
   currentRootId: string;
-  focusedId: string | null;
+  focusedNodeId: string | null;
   selectedIds: string[];
 }) => void;
 
@@ -32,7 +32,7 @@ export async function runNavigateToPage(
   set({
     currentRootId: page.id,
     selectedIds: [],
-    focusedId: newBlockId,
+    focusedNodeId: newBlockId,
   });
   return page.id;
 }

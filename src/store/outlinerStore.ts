@@ -21,12 +21,10 @@ import type {
 } from "../domain/outliner/types";
 import type { BlockContentJSON } from "../domain/outliner/contentTypes";
 import type { DragProjection } from "../features/outliner/dragProjection";
-import { extractPlainText } from "../features/editor/serialization/extractPlainText";
 import {
   debouncedUpdateContent,
   flushAllPendingContentUpdates,
   flushUpdateContent,
-  type CursorRestore,
   runAddSibling,
   runDeleteNode,
   runDeleteSelectedNodes,
@@ -35,12 +33,12 @@ import {
   runMergeBlockWithPrevious,
   runMoveBlock,
   runMoveNodeToPage,
-  runPruneEmptyBlock,
   runSplitBlock,
   runToggleCollapse,
   runUpdateContent,
+  runUpdateNodeContent,
 } from "./blockActions";
-import { shouldAcceptBlockFocus } from "./focusHandoff";
+import { findFlatNode } from "../ui/blockNodeText";
 import type { PortalFilter } from "../domain/outliner/portalTypes";
 import { runLoadPortalResults } from "./portalActions";
 import { runCycleTaskStatus, runToggleTaskCompletion, runUpdateNodeMetadata } from "./todoActions";
@@ -90,7 +88,7 @@ function findFlatNodesForId(
   return [];
 }
 
-export type { SyncStatus, CursorRestore };
+export type { SyncStatus };
 
 interface OutlinerState {
   loading: boolean;
@@ -98,10 +96,9 @@ interface OutlinerState {
   syncStatus: SyncStatus;
   currentRootId: string;
   nodesByRootId: Record<string, FlatOutlineNode[]>;
-  focusedId: string | null;
+  focusedNodeId: string | null;
   selectedIds: string[];
   selectionAnchorId: string | null;
-  pendingCursorRestore: CursorRestore | null;
   linkedReferences: OutlineNodeRow[];
   linkedReferenceNodesById: Record<string, FlatOutlineNode[]>;
   currentPageTitle: string | null;
@@ -130,10 +127,10 @@ interface OutlinerState {
   toggleCurrentPageFavorite: () => Promise<void>;
   trashCurrentPage: () => Promise<void>;
   restorePage: (nodeId: string) => Promise<void>;
-  setFocus: (id: string | null) => void;
+  setFocusedNode: (id: string | null) => void;
+  getNode: (nodeId: string) => FlatOutlineNode | null;
   focusBlock: (id: string) => void;
   selectRange: (anchorId: string, targetId: string) => void;
-  setPendingCursorRestore: (pos: CursorRestore | null) => void;
   getPreviousNode: (nodeId: string) => FlatOutlineNode | null;
   getNextNode: (nodeId: string) => FlatOutlineNode | null;
   focusPreviousNode: (currentId: string) => void;
@@ -144,6 +141,7 @@ interface OutlinerState {
   extendBlockSelection: (anchorId: string, targetId: string) => void;
   clearSelection: () => void;
   updateContent: (id: string, content: BlockContentJSON) => void;
+  updateNodeContent: (id: string, content: string) => void;
   debouncedUpdateContent: (id: string, content: BlockContentJSON) => void;
   flushUpdateContent: (
     id: string,
@@ -164,7 +162,6 @@ interface OutlinerState {
   outdent: (id: string) => Promise<void>;
   deleteNode: (id: string) => Promise<void>;
   deleteSelectedNodes: () => Promise<void>;
-  pruneEmptyBlock: (id: string, content: BlockContentJSON) => Promise<void>;
   toggleCollapse: (id: string) => Promise<void>;
   cycleTaskStatus: (ids: string | string[]) => Promise<void>;
   /** @deprecated Use cycleTaskStatus. */
@@ -198,10 +195,9 @@ export const useOutlinerStore = create<OutlinerState>((set, get) => ({
   syncStatus: "disconnected",
   currentRootId: "",
   nodesByRootId: {},
-  focusedId: null,
+  focusedNodeId: null,
   selectedIds: [],
   selectionAnchorId: null,
-  pendingCursorRestore: null,
   linkedReferences: [],
   linkedReferenceNodesById: {},
   currentPageTitle: null,
@@ -305,7 +301,7 @@ export const useOutlinerStore = create<OutlinerState>((set, get) => ({
       set({
         currentRootId: rootId,
         selectedIds: [],
-        focusedId: null,
+        focusedNodeId: null,
         ...emptyLinkedReferenceState(),
       });
       await get().refresh();
@@ -316,7 +312,7 @@ export const useOutlinerStore = create<OutlinerState>((set, get) => ({
     set({
       currentRootId: rootId,
       selectedIds: [],
-      focusedId: newBlockId,
+      focusedNodeId: newBlockId,
     });
     await get().refresh();
   },
@@ -349,7 +345,7 @@ export const useOutlinerStore = create<OutlinerState>((set, get) => ({
       journalHistoryIds: historyJournalIds,
       journalHistoryOffset: offset,
       selectedIds: [],
-      focusedId: newBlockId,
+      focusedNodeId: newBlockId,
       ...emptyLinkedReferenceState(),
     });
     await get().refresh();
@@ -467,36 +463,33 @@ export const useOutlinerStore = create<OutlinerState>((set, get) => ({
     await get().refresh();
   },
 
-  setFocus: (id) => {
-    if (!shouldAcceptBlockFocus(id)) {
+  getNode: (nodeId) => findFlatNode(get().nodesByRootId, nodeId),
+
+  setFocusedNode: (id) => {
+    const state = get();
+    if (id === null) {
+      set({
+        focusedNodeId: null,
+        selectionAnchorId: null,
+      });
       return;
     }
+
+    if (state.focusedNodeId === id) {
+      return;
+    }
+
     set({
-      focusedId: id,
+      focusedNodeId: id,
       selectionAnchorId: id,
     });
   },
 
   focusBlock: (id) => {
-    if (!shouldAcceptBlockFocus(id)) {
-      return;
-    }
     set({
-      focusedId: id,
+      focusedNodeId: id,
       selectedIds: [],
       selectionAnchorId: id,
-    });
-    requestAnimationFrame(() => {
-      if (!shouldAcceptBlockFocus(id)) {
-        return;
-      }
-      if (get().focusedId !== id) {
-        set({
-          focusedId: id,
-          selectedIds: [],
-          selectionAnchorId: id,
-        });
-      }
     });
   },
 
@@ -517,8 +510,6 @@ export const useOutlinerStore = create<OutlinerState>((set, get) => ({
     });
   },
 
-  setPendingCursorRestore: (pos) => set({ pendingCursorRestore: pos }),
-
   getPreviousNode: (nodeId) => {
     const flatNodes = findFlatNodesForId(get().nodesByRootId, nodeId);
     const index = flatNodes.findIndex((node) => node.id === nodeId);
@@ -538,14 +529,7 @@ export const useOutlinerStore = create<OutlinerState>((set, get) => ({
     if (!target) {
       return;
     }
-
-    set({
-      focusedId: target.id,
-      pendingCursorRestore: {
-        nodeId: target.id,
-        pos: Math.max(1, extractPlainText(target.content).length + 1),
-      },
-    });
+    get().setFocusedNode(target.id);
   },
 
   focusNextNode: (currentId) => {
@@ -553,11 +537,7 @@ export const useOutlinerStore = create<OutlinerState>((set, get) => ({
     if (!target) {
       return;
     }
-
-    set({
-      focusedId: target.id,
-      pendingCursorRestore: { nodeId: target.id, pos: 1 },
-    });
+    get().setFocusedNode(target.id);
   },
 
   toggleSelect: (id) =>
@@ -588,15 +568,15 @@ export const useOutlinerStore = create<OutlinerState>((set, get) => ({
 
   extendBlockSelection: (anchorId, targetId) => {
     get().selectRange(anchorId, targetId);
-    set({
-      focusedId: targetId,
-      pendingCursorRestore: { nodeId: targetId, pos: 1 },
-    });
+    set({ focusedNodeId: targetId });
   },
 
   clearSelection: () => set({ selectedIds: [] }),
 
   updateContent: (id, content) => runUpdateContent(id, content, get, set),
+
+  updateNodeContent: (id, content) =>
+    runUpdateNodeContent(id, content, get, set),
 
   debouncedUpdateContent: (id, content) =>
     debouncedUpdateContent(id, content, get, set),
@@ -621,8 +601,6 @@ export const useOutlinerStore = create<OutlinerState>((set, get) => ({
 
   deleteSelectedNodes: () =>
     runDeleteSelectedNodes(get, set, () => get().refresh()),
-
-  pruneEmptyBlock: (id, content) => runPruneEmptyBlock(id, content, get, set),
 
   toggleCollapse: (id) => runToggleCollapse(id),
 

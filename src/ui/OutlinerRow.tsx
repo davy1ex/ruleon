@@ -8,10 +8,10 @@ import { memo, useEffect, useState, type CSSProperties, type MouseEvent } from "
 import type { FlatOutlineNode } from "../domain/outliner/types";
 import { useOutlinerStore } from "../store/outlinerStore";
 import { isWikiLinkTarget } from "../features/outliner/findWikiLink";
-import { BlockRowEditor } from "./BlockRowEditor";
+import { getQueryPortalAttrs } from "../features/editor/serialization/queryPortalContent";
+import { BlockRowEditor, BlockRowEditorPortal } from "./BlockRowEditor";
 import { OutlinerGuides } from "./OutlinerGuides";
 import { OutlinerRowLeading } from "./OutlinerRowLeading";
-import type { BlockPointerDownOptions } from "./useBlockRangeSelection";
 
 interface OutlinerRowProps {
   node: FlatOutlineNode;
@@ -25,12 +25,6 @@ interface OutlinerRowProps {
   onAddSibling: (id: string) => void;
   onToggleCollapse: (id: string) => void;
   onToggleTaskCompletion: (id: string) => void;
-  onBlockPointerDown?: (
-    nodeId: string,
-    event: MouseEvent,
-    options?: BlockPointerDownOptions,
-  ) => boolean;
-  onBlockPointerEnter?: (nodeId: string, event: MouseEvent) => void;
 }
 
 function outlinerRowPropsAreEqual(
@@ -106,8 +100,6 @@ function OutlinerRowShell({
   onClearSelection,
   onToggleCollapse,
   onToggleTaskCompletion,
-  onBlockPointerDown,
-  onBlockPointerEnter,
   setNodeRef,
   rowStyle,
   isDragging,
@@ -155,9 +147,6 @@ function OutlinerRowShell({
     if ((event.target as HTMLElement).closest("[data-task-checkbox]")) {
       return;
     }
-    if ((event.target as HTMLElement).closest('[data-testid="block-editor"]')) {
-      return;
-    }
     if ((event.target as HTMLElement).closest("textarea")) {
       return;
     }
@@ -166,11 +155,10 @@ function OutlinerRowShell({
       onToggleSelect(node.id);
       return;
     }
-    if (onBlockPointerDown?.(node.id, event)) {
-      return;
-    }
     onClearSelection();
     onFocus(node.id);
+    const textarea = (event.currentTarget as HTMLElement).querySelector("textarea");
+    textarea?.focus({ preventScroll: true });
   };
 
   const displayDepth =
@@ -192,7 +180,6 @@ function OutlinerRowShell({
       } ${isDragging ? "z-10 opacity-90 shadow-sm" : ""}`}
       onMouseDown={handleSelectPointer}
       onContextMenu={handleContextMenu}
-      onMouseEnter={(event) => onBlockPointerEnter?.(node.id, event)}
     >
       <OutlinerGuides depth={displayDepth} />
       <OutlinerRowLeading
@@ -205,20 +192,16 @@ function OutlinerRowShell({
         onToggleCollapse={onToggleCollapse}
         onToggleTaskCompletion={onToggleTaskCompletion}
       />
-      <div className="min-w-0 flex-1">
-        <BlockRowEditor
-          nodeId={node.id}
-          parentId={node.parent_id}
-          nodeContent={node.content}
-          hasChildren={node.hasChildren}
-          readOnly={readOnly}
-          isFocused={isFocused}
-          taskStatus={node.task_status}
-          onFocus={onFocus}
-          onToggleSelect={onToggleSelect}
-          onClearSelection={onClearSelection}
-          onBlockPointerDown={onBlockPointerDown}
-        />
+      <div
+        className="min-w-0 flex-1"
+        onMouseDown={(event) => event.stopPropagation()}
+        onPointerDown={(event) => event.stopPropagation()}
+      >
+        {getQueryPortalAttrs(node.content) ? (
+          <BlockRowEditorPortal nodeContent={node.content} />
+        ) : (
+          <BlockRowEditor nodeId={node.id} readOnly={readOnly} />
+        )}
       </div>
     </div>
     {contextMenu ? (

@@ -27,9 +27,9 @@ function EditorContent({ leaf }: { leaf: WorkspaceLeaf }) {
     (s) => s.dailyFeedTodayRootId,
   );
   const journalHistoryIds = useOutlinerStore((s) => s.journalHistoryIds);
-  const focusedId = useOutlinerStore((s) => s.focusedId);
+  const focusedNodeId = useOutlinerStore((s) => s.focusedNodeId);
   const selectedIds = useOutlinerStore((s) => s.selectedIds);
-  const setFocus = useOutlinerStore((s) => s.setFocus);
+  const setFocusedNode = useOutlinerStore((s) => s.setFocusedNode);
   const toggleSelect = useOutlinerStore((s) => s.toggleSelect);
   const clearSelection = useOutlinerStore((s) => s.clearSelection);
   const addSibling = useOutlinerStore((s) => s.addSibling);
@@ -41,9 +41,9 @@ function EditorContent({ leaf }: { leaf: WorkspaceLeaf }) {
   );
 
   const treeHandlers = {
-    focusedId,
+    focusedNodeId,
     selectedIds,
-    onFocus: setFocus,
+    onFocus: setFocusedNode,
     onToggleSelect: toggleSelect,
     onClearSelection: clearSelection,
     onAddSibling: (id: string) => void addSibling(id),
@@ -106,9 +106,9 @@ function JournalContent() {
   );
   const nodesByRootId = useOutlinerStore((s) => s.nodesByRootId);
   const journalHistoryIds = useOutlinerStore((s) => s.journalHistoryIds);
-  const focusedId = useOutlinerStore((s) => s.focusedId);
+  const focusedNodeId = useOutlinerStore((s) => s.focusedNodeId);
   const selectedIds = useOutlinerStore((s) => s.selectedIds);
-  const setFocus = useOutlinerStore((s) => s.setFocus);
+  const setFocusedNode = useOutlinerStore((s) => s.setFocusedNode);
   const toggleSelect = useOutlinerStore((s) => s.toggleSelect);
   const clearSelection = useOutlinerStore((s) => s.clearSelection);
   const addSibling = useOutlinerStore((s) => s.addSibling);
@@ -119,9 +119,9 @@ function JournalContent() {
   );
 
   const treeHandlers = {
-    focusedId,
+    focusedNodeId,
     selectedIds,
-    onFocus: setFocus,
+    onFocus: setFocusedNode,
     onToggleSelect: toggleSelect,
     onClearSelection: clearSelection,
     onAddSibling: (id: string) => void addSibling(id),

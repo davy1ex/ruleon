@@ -20,11 +20,10 @@ import {
 import { useOutlinerStore } from "../store/outlinerStore";
 import { DropIndicator } from "./DropIndicator";
 import { OutlinerRow } from "./OutlinerRow";
-import { useBlockRangeSelection } from "./useBlockRangeSelection";
 import { useBlockTreeKeyboard } from "./useBlockTreeKeyboard";
 
 export interface BlockTreeHandlers {
-  focusedId: string | null;
+  focusedNodeId: string | null;
   selectedIds: string[];
   onFocus: (id: string) => void;
   onToggleSelect: (id: string) => void;
@@ -45,13 +44,11 @@ function BlockTreeRows({
   rootId,
   nodes,
   readOnly = false,
-  focusedId,
+  focusedNodeId,
   selectedIds,
   dragProjection = null,
   ...handlers
 }: BlockTreeProps) {
-  const { handleBlockPointerDown, handleBlockPointerEnter } =
-    useBlockRangeSelection();
   useBlockTreeKeyboard(nodes, rootId);
 
   return (
@@ -66,7 +63,7 @@ function BlockTreeRows({
           <OutlinerRow
             node={node}
             readOnly={readOnly}
-            isFocused={node.id === focusedId}
+            isFocused={node.id === focusedNodeId}
             isSelected={selectedIds.includes(node.id)}
             projectedDepth={
               dragProjection?.activeId === node.id
@@ -74,8 +71,6 @@ function BlockTreeRows({
                 : undefined
             }
             {...handlers}
-            onBlockPointerDown={handleBlockPointerDown}
-            onBlockPointerEnter={handleBlockPointerEnter}
           />
           {!readOnly ? (
             <div

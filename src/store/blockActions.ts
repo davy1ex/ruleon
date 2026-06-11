@@ -21,27 +21,23 @@ import { computeFractionalSortOrder } from "../domain/outliner/sortOrder";
 import type { FlatOutlineNode } from "../domain/outliner/types";
 import { mergeDocuments } from "../features/editor/document/mergeDocuments";
 import { isDocumentEmpty } from "../features/editor/document/isDocumentEmpty";
-import { extractPlainText } from "../features/editor/serialization/extractPlainText";
+import { plainTextToBlockContent } from "../features/editor/serialization/parseStoredContent";
 import { serializeForDb } from "../features/editor/serialization/serializeForDb";
 import { shareSameTreeRoot } from "../features/outliner/treeOps";
 import { createNodeId } from "../domain/outliner/seed";
 import { initialNodeMetadata } from "../domain/outliner/metadata";
 import { getDbContext } from "./dbContext";
-import { beginFocusHandoff } from "./focusHandoff";
-
-export type CursorRestore = { nodeId: string; pos: number };
-
 type StoreGet = () => {
   nodesByRootId: Record<string, FlatOutlineNode[]>;
   linkedReferenceNodesById: Record<string, FlatOutlineNode[]>;
-  focusedId: string | null;
+  focusedNodeId: string | null;
   selectedIds: string[];
 };
 
 type StoreSet = (partial: {
-  focusedId?: string | null;
+  focusedNodeId?: string | null;
   selectedIds?: string[];
-  pendingCursorRestore?: CursorRestore | null;
+  moveTargetNodeId?: string | null;
   nodesByRootId?: Record<string, FlatOutlineNode[]>;
   linkedReferenceNodesById?: Record<string, FlatOutlineNode[]>;
 }) => void;
@@ -345,31 +341,6 @@ const pendingContentUpdates = new Map<
   { timeout: ReturnType<typeof setTimeout>; content: BlockContentJSON }
 >();
 
-const liveEditorContent = new Map<string, BlockContentJSON>();
-const activeEditorSnapshots = new Map<string, () => BlockContentJSON>();
-
-export function registerActiveEditor(
-  id: string,
-  getContent: () => BlockContentJSON,
-): void {
-  activeEditorSnapshots.set(id, getContent);
-}
-
-export function unregisterActiveEditor(id: string): void {
-  activeEditorSnapshots.delete(id);
-}
-
-export function syncLiveEditorContent(
-  id: string,
-  content: BlockContentJSON,
-): void {
-  liveEditorContent.set(id, content);
-}
-
-export function clearLiveEditorContent(id: string): void {
-  liveEditorContent.delete(id);
-}
-
 export function cancelDebouncedUpdateContent(id: string): void {
   const pending = pendingContentUpdates.get(id);
   if (!pending) {
@@ -460,9 +431,6 @@ export async function flushUpdateContent(
   options?: { syncStore?: boolean },
 ): Promise<void> {
   cancelDebouncedUpdateContent(id);
-  if (options?.syncStore !== false) {
-    liveEditorContent.delete(id);
-  }
   await persistContentUpdate(id, content, get, set, options);
 }
 
@@ -470,30 +438,6 @@ export async function flushAllPendingContentUpdates(
   get: StoreGet,
   set: StoreSet,
 ): Promise<void> {
-  for (const [id, getContent] of activeEditorSnapshots.entries()) {
-    try {
-      const content = getContent();
-      cancelDebouncedUpdateContent(id);
-      await safePersistContentUpdate(id, content, get, set);
-      liveEditorContent.delete(id);
-    } catch (error) {
-      console.error("CRITICAL: active editor snapshot flush failed:", {
-        id,
-        error,
-      });
-    }
-  }
-
-  const liveEntries = [...liveEditorContent.entries()];
-  for (const [id, content] of liveEntries) {
-    if (activeEditorSnapshots.has(id)) {
-      continue;
-    }
-    cancelDebouncedUpdateContent(id);
-    await safePersistContentUpdate(id, content, get, set);
-    liveEditorContent.delete(id);
-  }
-
   const pending = [...pendingContentUpdates.entries()];
   for (const [id] of pending) {
     cancelDebouncedUpdateContent(id);
@@ -504,6 +448,25 @@ export async function flushAllPendingContentUpdates(
       safePersistContentUpdate(id, entry.content, get, set),
     ),
   );
+}
+
+export function runUpdateNodeContent(
+  id: string,
+  text: string,
+  get: StoreGet,
+  set: StoreSet,
+): void {
+  const content = plainTextToBlockContent(text);
+  const { nodesByRootId, linkedReferenceNodesById } = get();
+  set({
+    nodesByRootId: applyOptimisticContentUpdate(nodesByRootId, id, content),
+    linkedReferenceNodesById: applyOptimisticContentUpdate(
+      linkedReferenceNodesById,
+      id,
+      content,
+    ),
+  });
+  debouncedUpdateContent(id, content, get, set);
 }
 
 export function runUpdateContent(
@@ -547,12 +510,10 @@ export async function runAddSibling(
       initialContent,
     ) ?? linkedReferenceNodesById;
 
-  beginFocusHandoff(newId);
   set({
     nodesByRootId: nextNodesByRootId,
     linkedReferenceNodesById: nextLinkedReferenceNodesById,
-    focusedId: newId,
-    pendingCursorRestore: { nodeId: newId, pos: 0 },
+    focusedNodeId: newId,
     selectedIds: [],
   });
 
@@ -563,8 +524,7 @@ export async function runAddSibling(
   }
 
   await refresh();
-  if (get().focusedId !== createdId) {
-    beginFocusHandoff(createdId);
+  if (get().focusedNodeId !== createdId) {
     restoreFocusAfterMove(createdId, set);
   }
 }
@@ -632,12 +592,10 @@ export async function runSplitBlock(
     ) ?? linkedReferenceNodesById;
 
   cancelDebouncedUpdateContent(id);
-  beginFocusHandoff(newId);
   set({
     nodesByRootId: nextNodesByRootId,
     linkedReferenceNodesById: nextLinkedReferenceNodesById,
-    focusedId: newId,
-    pendingCursorRestore: { nodeId: newId, pos: 0 },
+    focusedNodeId: newId,
     selectedIds: [],
   });
 
@@ -653,8 +611,7 @@ export async function runSplitBlock(
       return;
     }
     await refresh();
-    if (get().focusedId !== createdId) {
-      beginFocusHandoff(createdId);
+    if (get().focusedNodeId !== createdId) {
       restoreFocusAfterMove(createdId, set);
     }
   } catch (error) {
@@ -664,10 +621,7 @@ export async function runSplitBlock(
 }
 
 function restoreFocusAfterMove(id: string, set: StoreSet): void {
-  set({
-    focusedId: id,
-    pendingCursorRestore: { nodeId: id, pos: 0 },
-  });
+  set({ focusedNodeId: id });
 }
 
 export async function runIndent(
@@ -821,14 +775,11 @@ function resolveFocusAfterBulkDelete(
   flatNodes: FlatOutlineNode[],
   deletedIds: Set<string>,
   currentFocus: string | null,
-): CursorRestore | null {
+): string | null {
   if (currentFocus && !deletedIds.has(currentFocus)) {
     const focusedNode = flatNodes.find((node) => node.id === currentFocus);
     if (focusedNode) {
-      return {
-        nodeId: currentFocus,
-        pos: Math.max(1, extractPlainText(focusedNode.content).length + 1),
-      };
+      return currentFocus;
     }
   }
 
@@ -840,17 +791,14 @@ function resolveFocusAfterBulkDelete(
   for (let index = firstDeletedIndex - 1; index >= 0; index -= 1) {
     const candidate = flatNodes[index];
     if (candidate && !deletedIds.has(candidate.id)) {
-      return {
-        nodeId: candidate.id,
-        pos: Math.max(1, extractPlainText(candidate.content).length + 1),
-      };
+      return candidate.id;
     }
   }
 
   for (let index = firstDeletedIndex + 1; index < flatNodes.length; index += 1) {
     const candidate = flatNodes[index];
     if (candidate && !deletedIds.has(candidate.id)) {
-      return { nodeId: candidate.id, pos: 1 };
+      return candidate.id;
     }
   }
 
@@ -888,7 +836,7 @@ export async function runDeleteSelectedNodes(
   set: StoreSet,
   refresh: () => Promise<void>,
 ): Promise<void> {
-  const { selectedIds, nodesByRootId, linkedReferenceNodesById, focusedId } =
+  const { selectedIds, nodesByRootId, linkedReferenceNodesById, focusedNodeId } =
     get();
   if (selectedIds.length <= 1) {
     return;
@@ -908,7 +856,7 @@ export async function runDeleteSelectedNodes(
   const nextFocus = resolveFocusAfterBulkDelete(
     flatNodes,
     deletedIds,
-    focusedId,
+    focusedNodeId,
   );
 
   for (const id of deletedIds) {
@@ -921,8 +869,7 @@ export async function runDeleteSelectedNodes(
       linkedReferenceNodesById,
       deletedIds,
     ),
-    focusedId: nextFocus?.nodeId ?? null,
-    pendingCursorRestore: nextFocus,
+    focusedNodeId: nextFocus,
     selectedIds: [],
   });
 
@@ -934,10 +881,7 @@ export async function runDeleteSelectedNodes(
     }
     await refresh();
     if (nextFocus) {
-      set({
-        focusedId: nextFocus.nodeId,
-        pendingCursorRestore: nextFocus,
-      });
+      set({ focusedNodeId: nextFocus });
     }
   } catch (error) {
     console.error("[deleteSelectedNodes] failed:", error);
@@ -959,18 +903,18 @@ export async function runDeleteNode(
     return;
   }
 
-  const { nodesByRootId, focusedId, selectedIds } = get();
+  const { nodesByRootId, focusedNodeId, selectedIds } = get();
   const flatNodes = Object.values(nodesByRootId).flat();
   const nextSelected = selectedIds.filter((selectedId) => selectedId !== id);
-  let nextFocus = focusedId;
+  let nextFocus = focusedNodeId;
 
-  if (focusedId === id) {
+  if (focusedNodeId === id) {
     const index = flatNodes.findIndex((node) => node.id === id);
     const fallback = flatNodes[index - 1] ?? flatNodes[index + 1];
     nextFocus = fallback?.id ?? null;
   }
 
-  set({ focusedId: nextFocus, selectedIds: nextSelected });
+  set({ focusedNodeId: nextFocus, selectedIds: nextSelected });
 }
 
 export async function runToggleCollapse(id: string): Promise<void> {
@@ -981,32 +925,13 @@ export async function runToggleCollapse(id: string): Promise<void> {
   await toggleCollapsed(db, id);
 }
 
+/** Disabled — deleting nodes on blur crashes Android IME. */
 export async function runPruneEmptyBlock(
-  id: string,
-  content: BlockContentJSON,
-  get: StoreGet,
-  set: StoreSet,
-): Promise<void> {
-  if (!isDocumentEmpty(content)) {
-    return;
-  }
-
-  const flatNodes = Object.values(get().nodesByRootId).flat();
-  const node = flatNodes.find((entry) => entry.id === id);
-  if (!node) {
-    return;
-  }
-
-  const siblingCount = flatNodes.filter(
-    (entry) => entry.parent_id === node.parent_id,
-  ).length;
-
-  if (siblingCount <= 1) {
-    return;
-  }
-
-  await runDeleteNode(id, get, set);
-}
+  _id: string,
+  _content: BlockContentJSON,
+  _get: StoreGet,
+  _set: StoreSet,
+): Promise<void> {}
 
 function findFlatNodesForId(
   nodesByRootId: Record<string, FlatOutlineNode[]>,
@@ -1050,7 +975,7 @@ export async function runMergeBlockWithPrevious(
   }
 
   const liveRemainder = remainder ?? sourceNode.content;
-  const { merged, cursorPos } = mergeDocuments(targetNode.content, liveRemainder);
+  const { merged } = mergeDocuments(targetNode.content, liveRemainder);
 
   set({
     nodesByRootId: applyOptimisticMerge(
@@ -1059,11 +984,7 @@ export async function runMergeBlockWithPrevious(
       targetNode.id,
       merged,
     ),
-    focusedId: targetNode.id,
-    pendingCursorRestore: {
-      nodeId: targetNode.id,
-      pos: Math.max(1, cursorPos + 1),
-    },
+    focusedNodeId: targetNode.id,
     selectedIds: [],
   });
 

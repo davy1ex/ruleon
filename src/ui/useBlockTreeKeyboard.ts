@@ -22,7 +22,7 @@ function isTreeActive(
   }
 
   const state = useOutlinerStore.getState();
-  if (state.focusedId !== null && nodeIdSet.has(state.focusedId)) {
+  if (state.focusedNodeId !== null && nodeIdSet.has(state.focusedNodeId)) {
     return true;
   }
   return state.selectedIds.some((id) => nodeIdSet.has(id));
@@ -75,8 +75,8 @@ export function useBlockTreeKeyboard(
         event.code === "KeyM"
       ) {
         const targetId =
-          state.focusedId && nodeIdSet.has(state.focusedId)
-            ? state.focusedId
+          state.focusedNodeId && nodeIdSet.has(state.focusedNodeId)
+            ? state.focusedNodeId
             : state.selectedIds.find((id) => nodeIdSet.has(id));
         if (!targetId) {
           return;
@@ -97,13 +97,13 @@ export function useBlockTreeKeyboard(
           if (event.ctrlKey || event.metaKey) {
             return;
           }
-        } else if (state.focusedId && nodeIdSet.has(state.focusedId)) {
+        } else if (state.focusedNodeId && nodeIdSet.has(state.focusedNodeId)) {
           event.preventDefault();
           event.stopPropagation();
           if (event.ctrlKey || event.metaKey) {
             void state.cycleTaskStatus(resolveToggleTargets(state, nodeIdSet));
           } else {
-            void state.addSibling(state.focusedId);
+            void state.addSibling(state.focusedNodeId);
           }
           return;
         } else if (event.ctrlKey || event.metaKey) {
@@ -144,8 +144,8 @@ export function useBlockTreeKeyboard(
       }
 
       const headId =
-        state.focusedId && nodeIdSet.has(state.focusedId)
-          ? state.focusedId
+        state.focusedNodeId && nodeIdSet.has(state.focusedNodeId)
+          ? state.focusedNodeId
           : (state.selectedIds.find((id) => nodeIdSet.has(id)) ??
             nodes[0]?.id ??
             null);

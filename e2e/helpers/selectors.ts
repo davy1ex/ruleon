@@ -3,6 +3,7 @@ export const sel = {
   row: '[data-testid="outliner-row"]',
   rowById: (id: string) => `[data-block-id="${id}"]`,
   editor: '[data-testid="block-editor"]',
+  editorRow: '[data-testid="block-editor"]',
   taskCheckbox: '[data-testid="task-checkbox"]',
   loading: "text=Loading database…",
 } as const;
