@@ -104,7 +104,7 @@ export const RichText = ({
 
   return (
     <div
-      className={`whitespace-pre-wrap break-words min-h-[24px] text-base text-text-normal ${baseOpacity}`}
+      className={`editor-text min-h-editor-row whitespace-pre-wrap break-words font-ui text-editor text-text-normal ${baseOpacity}`}
     >
       {parseInlineTokens(content)}
     </div>

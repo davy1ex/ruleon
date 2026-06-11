@@ -1,4 +1,11 @@
-import { app, BrowserWindow, globalShortcut, ipcMain } from "electron";
+import {
+  app,
+  BrowserWindow,
+  globalShortcut,
+  ipcMain,
+  nativeImage,
+} from "electron";
+import { existsSync } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -82,10 +89,39 @@ function attachWorkspaceShortcuts(win: BrowserWindow): void {
   });
 }
 
+function resolveAppIconPath(): string | undefined {
+  const root = app.isPackaged ? app.getAppPath() : path.join(__dirname, "..");
+  const candidates = [
+    path.join(root, "build/icons/512x512.png"),
+    path.join(root, "build/icons/256x256.png"),
+    path.join(root, "public/logo.png"),
+    path.join(root, "dist/logo.png"),
+  ];
+  return candidates.find((candidate) => existsSync(candidate));
+}
+
+function applyAppIcon(): void {
+  const iconPath = resolveAppIconPath();
+  if (!iconPath) {
+    return;
+  }
+
+  const image = nativeImage.createFromPath(iconPath);
+  if (image.isEmpty()) {
+    return;
+  }
+
+  if (process.platform === "darwin" && app.dock) {
+    app.dock.setIcon(image);
+  }
+}
+
 function createWindow(): void {
+  const iconPath = resolveAppIconPath();
   const win = new BrowserWindow({
     width: 1280,
     height: 800,
+    ...(iconPath ? { icon: iconPath } : {}),
     webPreferences: {
       preload: path.join(__dirname, "preload.mjs"),
       contextIsolation: true,
@@ -133,7 +169,12 @@ ipcMain.handle(
   },
 );
 
+if (process.platform === "darwin") {
+  app.setName("Ruleon");
+}
+
 app.whenReady().then(() => {
+  applyAppIcon();
   createWindow();
 
   app.on("activate", () => {

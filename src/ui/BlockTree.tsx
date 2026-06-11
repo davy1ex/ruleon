@@ -74,7 +74,7 @@ function BlockTreeRows({
           />
           {!readOnly ? (
             <div
-              className="h-2 cursor-text"
+              className="h-outliner-block-gap cursor-text"
               data-testid="block-after-gap"
               onMouseDown={(event) => {
                 if (event.button !== 0) {

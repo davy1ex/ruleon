@@ -57,7 +57,7 @@ export function OutlinerRowLeading({
 
   return (
     <>
-      <div className="relative z-10 flex h-7 w-7 shrink-0 items-center justify-center">
+      <div className="relative z-10 flex h-outliner-leading w-outliner-leading shrink-0 items-center justify-center">
         {isTodo ? (
           <TaskCheckbox
             status={node.task_status ?? "TODO"}
@@ -70,9 +70,10 @@ export function OutlinerRowLeading({
           <span
             {...dragAttributes}
             {...dragListeners}
+            tabIndex={-1}
             onMouseDown={(event) => event.stopPropagation()}
             onClick={handleBulletClick}
-            className={`flex h-7 w-7 items-center justify-center ${
+            className={`flex h-outliner-leading w-outliner-leading items-center justify-center ${
               node.hasChildren ? "cursor-pointer" : ""
             } ${isDragging ? "cursor-grabbing" : "cursor-grab"}`}
             aria-label={

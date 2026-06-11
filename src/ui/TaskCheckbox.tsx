@@ -63,6 +63,7 @@ export function TaskCheckbox({
         type="checkbox"
         checked={checked}
         disabled={readOnly}
+        tabIndex={-1}
         onChange={handleChange}
         aria-label={checked ? "Mark task as to-do" : "Mark task as done"}
         className="peer h-4 w-4 cursor-pointer appearance-none rounded-sm border border-text-muted transition-colors checked:border-accent checked:bg-accent hover:border-accent disabled:cursor-default disabled:opacity-70"

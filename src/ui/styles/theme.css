@@ -1,9 +1,33 @@
 /* Semantic design tokens — switch via document.documentElement[data-theme] */
 
-/* Layout constants (theme-independent) */
+/* Layout & typography constants (theme-independent) */
 :root {
   --size-ribbon-width: 48px;
   --size-tab-height: 36px;
+
+  --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-editor-size: 1rem;
+  --font-editor-line-height: 1.3;
+  --font-editor-min-row-height: calc(
+    var(--font-editor-size) * var(--font-editor-line-height)
+  );
+  --outliner-row-padding-y: 0.16rem;
+  --outliner-block-gap: 0.125rem;
+  --outliner-leading-size: var(--font-editor-min-row-height);
+  --font-page-title-size: 1.875rem;
+  --font-page-title-line-height: 1.3;
+}
+
+:root[data-layout="mobile"] {
+  --font-editor-size: 1.0625rem;
+  --font-editor-line-height: 1.35;
+  --font-editor-min-row-height: calc(
+    var(--font-editor-size) * var(--font-editor-line-height)
+  );
+  --outliner-row-padding-y: 0.22rem;
+  --outliner-block-gap: 0.2rem;
+  --outliner-leading-size: var(--font-editor-min-row-height);
 }
 
 /* --- default (light) --- */

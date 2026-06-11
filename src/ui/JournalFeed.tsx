@@ -98,11 +98,11 @@ export function JournalFeed({
   }, [onLoadMore]);
 
   return (
-    <div className="mx-auto max-w-3xl px-8 py-12">
+    <div className="mx-auto max-w-3xl px-4 py-6 md:px-8 md:py-12">
       <button
         type="button"
         onClick={() => handleOpenDayNote(todayRootId)}
-        className="mb-6 block text-left text-2xl font-bold text-text-emphasis transition-colors hover:text-accent"
+        className="mb-6 block text-left font-ui text-page-title font-bold text-text-emphasis transition-colors hover:text-accent"
       >
         {formatTodayHeader()}
       </button>

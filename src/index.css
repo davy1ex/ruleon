@@ -7,9 +7,33 @@
 body {
   margin: 0;
   min-height: 100vh;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
-    Arial, sans-serif;
-  line-height: 1.7;
+  font-family: var(--font-ui);
+  font-size: var(--font-editor-size);
+  line-height: var(--font-editor-line-height);
   color: var(--color-text-normal);
   background: var(--color-bg-primary);
+}
+
+.editor-text {
+  font-family: var(--font-ui);
+  font-size: var(--font-editor-size);
+  line-height: var(--font-editor-line-height);
+  color: var(--color-text-normal);
+}
+
+textarea.editor-text {
+  box-sizing: border-box;
+  field-sizing: content;
+  min-height: var(--font-editor-min-row-height);
+  padding-block: 0;
+  line-height: var(--font-editor-line-height);
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }

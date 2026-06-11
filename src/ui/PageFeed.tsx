@@ -36,10 +36,10 @@ export function PageFeed({
   const displayTitle = formatDatePageDisplay(pageTitle) ?? pageTitle;
 
   return (
-    <div className="mx-auto max-w-3xl px-8 py-12">
+    <div className="mx-auto max-w-3xl px-4 py-6 md:px-8 md:py-12">
       <div className="mb-6 flex items-center gap-2">
         {isDailyNote ? (
-          <h1 className="w-full text-2xl font-bold text-text-emphasis">
+          <h1 className="w-full font-ui text-page-title font-bold text-text-emphasis">
             {displayTitle}
           </h1>
         ) : (

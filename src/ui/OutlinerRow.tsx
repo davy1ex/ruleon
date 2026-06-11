@@ -175,7 +175,7 @@ function OutlinerRowShell({
       data-depth={displayDepth}
       data-parent-id={node.parent_id ?? ""}
       style={rowStyle}
-      className={`group flex w-full items-start py-1 ${
+      className={`group flex w-full items-start py-outliner-row-y ${
         isSelected ? "rounded-md bg-interactive-selected" : ""
       } ${isDragging ? "z-10 opacity-90 shadow-sm" : ""}`}
       onMouseDown={handleSelectPointer}

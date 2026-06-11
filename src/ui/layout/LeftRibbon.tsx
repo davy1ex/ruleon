@@ -2,6 +2,7 @@ import { Calendar, Inbox, PanelLeft, Plus, Search, Settings } from "lucide-react
 import { INBOX_PAGE_ID } from "../../domain/outliner/inboxPage";
 import { useOutlinerStore } from "../../store/outlinerStore";
 import { useWorkspaceStore } from "../../store/workspaceStore";
+import { AppLogo } from "../AppLogo";
 import { RibbonButton } from "./RibbonButton";
 
 function createUntitledPageName(
@@ -52,7 +53,13 @@ export function LeftRibbon() {
   };
 
   return (
-    <nav className="z-10 flex w-12 shrink-0 flex-col items-center gap-1 border-r border-border bg-surface-ribbon pb-4 pt-4">
+    <nav className="z-10 flex w-12 shrink-0 flex-col items-center gap-1 border-r border-border bg-surface-ribbon pb-4 pt-3">
+      <div
+        className="mb-2 flex h-9 w-9 items-center justify-center"
+        aria-hidden
+      >
+        <AppLogo size={32} />
+      </div>
       <RibbonButton
         label={leftSidebarOpen ? "Hide sidebar" : "Show sidebar"}
         onClick={() => toggleLeftSidebar()}

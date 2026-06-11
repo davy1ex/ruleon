@@ -6,8 +6,10 @@ import {
   PlusCircle,
   Search,
 } from "lucide-react";
+import { useMobileToolbarLayout } from "../../hooks/useVisualViewport";
 import { useOutlinerStore } from "../../store/outlinerStore";
 import { useWorkspaceStore } from "../../store/workspaceStore";
+import { MobileToolbar } from "../components/MobileToolbar";
 import { AppLogo } from "../AppLogo";
 import { Sidebar } from "../Sidebar";
 import { SyncStatusDot } from "../SyncStatusDot";
@@ -35,6 +37,8 @@ export function MobileLayout({ children }: MobileLayoutProps) {
 
   const headerTitle = useMobileHeaderTitle();
   const currentRootId = useOutlinerStore((s) => s.currentRootId);
+  const focusedNodeId = useOutlinerStore((s) => s.focusedNodeId);
+  const { mainPaddingBottom } = useMobileToolbarLayout(focusedNodeId !== null);
   const activeLeafId = useWorkspaceStore((s) => s.activeLeafId);
   const toggleCommandPalette = useWorkspaceStore((s) => s.toggleCommandPalette);
   const toggleGlobalQuickAdd = useWorkspaceStore((s) => s.toggleGlobalQuickAdd);
@@ -85,7 +89,12 @@ export function MobileLayout({ children }: MobileLayoutProps) {
         </button>
       </header>
 
-      <main className="flex-1 overflow-y-auto pb-16">{children}</main>
+      <main
+        className="flex-1 overflow-y-auto"
+        style={{ paddingBottom: mainPaddingBottom }}
+      >
+        {children}
+      </main>
 
       <nav className="fixed bottom-0 z-40 flex h-14 w-full items-center justify-around border-t border-border bg-surface-secondary px-2 pb-[env(safe-area-inset-bottom)]">
         <button
@@ -129,6 +138,8 @@ export function MobileLayout({ children }: MobileLayoutProps) {
           <PanelRight size={24} />
         </button>
       </nav>
+
+      <MobileToolbar />
 
       {leftOpen ? (
         <div

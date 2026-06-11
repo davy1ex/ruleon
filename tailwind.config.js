@@ -62,6 +62,25 @@ export default {
       spacing: {
         ribbon: "var(--size-ribbon-width)",
         "tab-bar": "var(--size-tab-height)",
+        "outliner-row-y": "var(--outliner-row-padding-y)",
+        "outliner-block-gap": "var(--outliner-block-gap)",
+        "outliner-leading": "var(--outliner-leading-size)",
+      },
+      fontSize: {
+        editor: [
+          "var(--font-editor-size)",
+          { lineHeight: "var(--font-editor-line-height)" },
+        ],
+        "page-title": [
+          "var(--font-page-title-size)",
+          { lineHeight: "var(--font-page-title-line-height)" },
+        ],
+      },
+      fontFamily: {
+        ui: ["var(--font-ui)"],
+      },
+      minHeight: {
+        "editor-row": "var(--font-editor-min-row-height)",
       },
     },
   },

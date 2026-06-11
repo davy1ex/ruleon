@@ -5,8 +5,10 @@ export function TrashFeed() {
   const restorePage = useOutlinerStore((state) => state.restorePage);
 
   return (
-    <div className="mx-auto max-w-3xl px-8 py-12">
-      <h1 className="mb-6 text-2xl font-bold text-text-emphasis">Trash Bin</h1>
+    <div className="mx-auto max-w-3xl px-4 py-6 md:px-8 md:py-12">
+      <h1 className="mb-6 font-ui text-page-title font-bold text-text-emphasis">
+        Trash Bin
+      </h1>
       {trashedPages.length === 0 ? (
         <p className="text-sm text-text-muted">No trashed pages.</p>
       ) : (

@@ -4,8 +4,25 @@ import { extractPlainText } from "../features/editor/serialization/extractPlainT
 import { plainTextToBlockContent } from "../features/editor/serialization/parseStoredContent";
 import { getQueryPortalAttrs } from "../features/editor/serialization/queryPortalContent";
 import { sliceTextForSplit } from "../features/outliner/smartSplit";
+import type { TaskStatus } from "../domain/outliner/types";
 import { useOutlinerStore } from "../store/outlinerStore";
 import { QueryPortalPanel } from "./QueryPortalPanel";
+
+const TEXTAREA_BASE_CLASS =
+  "editor-text m-0 min-h-editor-row w-full resize-none overflow-hidden break-words bg-transparent px-1 py-0 font-ui text-editor outline-none";
+
+const USE_MANUAL_TEXTAREA_HEIGHT =
+  typeof CSS !== "undefined" && !CSS.supports("field-sizing", "content");
+
+function taskStatusTextClass(taskStatus: TaskStatus | null): string {
+  if (taskStatus === "DONE") {
+    return "line-through text-gray-500";
+  }
+  if (taskStatus === "FAILED") {
+    return "text-red-400 line-through opacity-70";
+  }
+  return "text-text-normal";
+}
 
 interface BlockRowEditorProps {
   nodeId: string;
@@ -20,20 +37,26 @@ const BlockRowEditorInner = memo(function BlockRowEditorInner({
   const node = useOutlinerStore.getState().getNode(nodeId);
 
   const adjustHeight = () => {
+    if (!USE_MANUAL_TEXTAREA_HEIGHT) {
+      return;
+    }
+
     const el = textareaRef.current;
     if (!el) {
       return;
     }
 
     el.style.height = "auto";
-    const newHeight = el.scrollHeight;
-    el.style.height = `${newHeight}px`;
+    const nextHeight = el.scrollHeight;
+    if (nextHeight > 0) {
+      el.style.height = `${nextHeight}px`;
+    }
   };
 
   useEffect(() => {
     adjustHeight();
     textareaRef.current?.setAttribute("importantForAutofill", "no");
-  }, []);
+  }, [nodeId]);
 
   useEffect(() => {
     const syncFromStore = () => {
@@ -45,6 +68,11 @@ const BlockRowEditorInner = memo(function BlockRowEditorInner({
       const currentNode = useOutlinerStore.getState().getNode(nodeId);
       if (!currentNode) {
         return;
+      }
+
+      const nextClass = `${TEXTAREA_BASE_CLASS} ${taskStatusTextClass(currentNode.task_status)}`;
+      if (el.className !== nextClass) {
+        el.className = nextClass;
       }
 
       const plainText = extractPlainText(currentNode.content);
@@ -95,12 +123,7 @@ const BlockRowEditorInner = memo(function BlockRowEditorInner({
     return null;
   }
 
-  const doneClass =
-    node.task_status === "DONE"
-      ? "line-through text-gray-500"
-      : node.task_status === "FAILED"
-        ? "text-red-400 line-through opacity-70"
-        : "text-text-normal";
+  const doneClass = taskStatusTextClass(node.task_status);
 
   return (
     <textarea
@@ -148,6 +171,17 @@ const BlockRowEditorInner = memo(function BlockRowEditorInner({
           return;
         }
 
+        if (event.key === "Tab") {
+          event.preventDefault();
+          const { indent, outdent } = useOutlinerStore.getState();
+          if (event.shiftKey) {
+            void outdent(nodeId);
+          } else {
+            void indent(nodeId);
+          }
+          return;
+        }
+
         if (event.key === "Backspace" && el.value === "") {
           const { getPreviousNode, deleteNode } = useOutlinerStore.getState();
           if (!getPreviousNode(nodeId)) {
@@ -164,8 +198,7 @@ const BlockRowEditorInner = memo(function BlockRowEditorInner({
       data-lpignore="true"
       data-form-type="other"
       rows={1}
-      className={`m-0 w-full resize-none overflow-hidden break-words bg-transparent px-1 py-0 outline-none ${doneClass}`}
-      style={{ minHeight: "24px" }}
+      className={`${TEXTAREA_BASE_CLASS} ${doneClass}`}
     />
   );
 }, (prev, next) => prev.nodeId === next.nodeId && prev.readOnly === next.readOnly);

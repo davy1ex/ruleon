@@ -15,7 +15,7 @@ function ReadOnlyOutlinerRow({ node }: { node: FlatOutlineNode }) {
       data-testid="outliner-row"
       data-block-id={node.id}
       data-depth={node.depth}
-      className="group flex w-full items-start py-1"
+      className="group flex w-full items-start py-outliner-row-y"
     >
       <OutlinerGuides depth={node.depth} />
       <OutlinerRowLeading
@@ -27,7 +27,7 @@ function ReadOnlyOutlinerRow({ node }: { node: FlatOutlineNode }) {
         onToggleTaskCompletion={() => {}}
       />
       <div className="min-w-0 flex-1 pt-px">
-        <div className="m-0 min-h-[28px] w-full select-none bg-transparent px-0 py-0 text-[15px] leading-7 text-text-emphasis">
+        <div className="editor-text m-0 min-h-editor-row w-full select-none bg-transparent px-0 py-0 font-ui text-editor text-text-emphasis">
           <RichText
             content={extractPlainText(node.content)}
             isDone={node.task_status === "DONE"}
