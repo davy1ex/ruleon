@@ -1,7 +1,15 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type RefObject } from "react";
 
-export function useAutoResize(value: string) {
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+export type BlockTextareaElement = HTMLTextAreaElement & {
+  isComposing?: boolean;
+};
+
+export function useAutoResize(
+  value: string,
+  externalRef?: RefObject<BlockTextareaElement | null>,
+): RefObject<BlockTextareaElement | null> {
+  const internalRef = useRef<BlockTextareaElement>(null);
+  const textareaRef = externalRef ?? internalRef;
 
   useEffect(() => {
     const textarea = textareaRef.current;
@@ -11,7 +19,7 @@ export function useAutoResize(value: string) {
 
     textarea.style.height = "auto";
     textarea.style.height = `${textarea.scrollHeight}px`;
-  }, [value]);
+  }, [value, textareaRef]);
 
   return textareaRef;
 }

@@ -155,6 +155,9 @@ function OutlinerRowShell({
     if ((event.target as HTMLElement).closest("[data-task-checkbox]")) {
       return;
     }
+    if ((event.target as HTMLElement).closest('[data-testid="block-editor"]')) {
+      return;
+    }
     if ((event.target as HTMLElement).closest("textarea")) {
       return;
     }

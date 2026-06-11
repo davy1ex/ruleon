@@ -68,10 +68,13 @@ export function useBlockRangeSelection() {
       const onUp = () => {
         if (dragAnchorRef.current === nodeId && !isDraggingRef.current) {
           if (!options?.allowTextCaret) {
-            const { setFocus, setPendingCursorRestore } =
+            const { setFocus, setPendingCursorRestore, focusedId } =
               useOutlinerStore.getState();
-            setFocus(nodeId);
-            setPendingCursorRestore({ nodeId, pos: 1 });
+            // Skip if pointerdown already moved focus (flushSync path).
+            if (focusedId !== nodeId) {
+              setFocus(nodeId);
+              setPendingCursorRestore({ nodeId, pos: 1 });
+            }
           }
         }
         endDrag();

@@ -1,11 +1,6 @@
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type RefObject,
-} from "react";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import type { BlockContentJSON } from "../domain/outliner/contentTypes";
+import type { BlockTextareaElement } from "../ui/useAutoResize";
 import { extractPlainText } from "../features/editor/serialization/extractPlainText";
 import { plainTextToBlockContent } from "../features/editor/serialization/parseStoredContent";
 import {
@@ -23,7 +18,7 @@ interface UseBlockEditorOptions {
   nodeContent: BlockContentJSON;
   isFocused: boolean;
   isEditing: boolean;
-  isComposingRef?: RefObject<boolean>;
+  textareaRef?: RefObject<BlockTextareaElement | null>;
 }
 
 export function useBlockEditor({
@@ -31,8 +26,9 @@ export function useBlockEditor({
   nodeContent,
   isFocused,
   isEditing,
-  isComposingRef,
+  textareaRef,
 }: UseBlockEditorOptions) {
+  const isComposing = () => textareaRef?.current?.isComposing === true;
   const initialText = extractPlainText(nodeContent);
   const [localText, setLocalText] = useState(initialText);
   const flushUpdateContent = useOutlinerStore((state) => state.flushUpdateContent);
@@ -72,19 +68,19 @@ export function useBlockEditor({
   }, [nodeId]);
 
   useEffect(() => {
-    if (localText === originalRef.current || isComposingRef?.current) {
+    if (localText === originalRef.current || isComposing()) {
       return;
     }
 
     const timer = setTimeout(() => {
-      if (isComposingRef?.current) {
+      if (isComposing()) {
         return;
       }
       persistText(localText, { syncStore: false });
     }, AUTO_SAVE_MS);
 
     return () => clearTimeout(timer);
-  }, [localText, nodeId, persistText, isComposingRef]);
+  }, [localText, nodeId, persistText, textareaRef]);
 
   useEffect(() => {
     if (!isFocused && textRef.current !== originalRef.current) {
@@ -136,12 +132,12 @@ export function useBlockEditor({
     (text: string) => {
       setLocalText(text);
       textRef.current = text;
-      if (isComposingRef?.current) {
+      if (isComposing()) {
         return;
       }
       syncLiveEditorContent(nodeId, plainTextToBlockContent(text));
     },
-    [nodeId, isComposingRef],
+    [nodeId, textareaRef],
   );
 
   return {
