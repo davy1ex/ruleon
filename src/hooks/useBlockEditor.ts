@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type RefObject,
+} from "react";
 import type { BlockContentJSON } from "../domain/outliner/contentTypes";
 import { extractPlainText } from "../features/editor/serialization/extractPlainText";
 import { plainTextToBlockContent } from "../features/editor/serialization/parseStoredContent";
@@ -17,6 +23,7 @@ interface UseBlockEditorOptions {
   nodeContent: BlockContentJSON;
   isFocused: boolean;
   isEditing: boolean;
+  isComposingRef?: RefObject<boolean>;
 }
 
 export function useBlockEditor({
@@ -24,6 +31,7 @@ export function useBlockEditor({
   nodeContent,
   isFocused,
   isEditing,
+  isComposingRef,
 }: UseBlockEditorOptions) {
   const initialText = extractPlainText(nodeContent);
   const [localText, setLocalText] = useState(initialText);
@@ -64,16 +72,19 @@ export function useBlockEditor({
   }, [nodeId]);
 
   useEffect(() => {
-    if (localText === originalRef.current) {
+    if (localText === originalRef.current || isComposingRef?.current) {
       return;
     }
 
     const timer = setTimeout(() => {
+      if (isComposingRef?.current) {
+        return;
+      }
       persistText(localText, { syncStore: false });
     }, AUTO_SAVE_MS);
 
     return () => clearTimeout(timer);
-  }, [localText, nodeId, persistText]);
+  }, [localText, nodeId, persistText, isComposingRef]);
 
   useEffect(() => {
     if (!isFocused && textRef.current !== originalRef.current) {
@@ -121,11 +132,17 @@ export function useBlockEditor({
     }
   }, [persistText]);
 
-  const handleChange = useCallback((text: string) => {
-    setLocalText(text);
-    textRef.current = text;
-    syncLiveEditorContent(nodeId, plainTextToBlockContent(text));
-  }, [nodeId]);
+  const handleChange = useCallback(
+    (text: string) => {
+      setLocalText(text);
+      textRef.current = text;
+      if (isComposingRef?.current) {
+        return;
+      }
+      syncLiveEditorContent(nodeId, plainTextToBlockContent(text));
+    },
+    [nodeId, isComposingRef],
+  );
 
   return {
     localText,

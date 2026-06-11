@@ -1,5 +1,5 @@
 import { Capacitor } from "@capacitor/core";
-import { useLayoutEffect, type MouseEvent } from "react";
+import { useLayoutEffect, useRef, type ChangeEvent, type MouseEvent } from "react";
 import type { BlockContentJSON } from "../domain/outliner/contentTypes";
 import type { FlatOutlineNode } from "../domain/outliner/types";
 import { extractPlainText } from "../features/editor/serialization/extractPlainText";
@@ -65,12 +65,19 @@ export function BlockRowEditor({
     ? "text-red-400 line-through opacity-70"
     : "";
 
+  const isComposing = useRef(false);
+
   const { localText, setLocalText, handleBlur, persistText } = useBlockEditor({
     nodeId,
     nodeContent,
     isFocused,
     isEditing,
+    isComposingRef: isComposing,
   });
+
+  const handleChange = (event: ChangeEvent<HTMLTextAreaElement>) => {
+    setLocalText(event.target.value);
+  };
 
   const textareaRef = useAutoResize(localText);
 
@@ -145,7 +152,14 @@ export function BlockRowEditor({
         autoCapitalize="sentences"
         spellCheck={false}
         autoComplete="off"
-        onChange={(event) => setLocalText(event.target.value)}
+        onChange={handleChange}
+        onCompositionStart={() => {
+          isComposing.current = true;
+        }}
+        onCompositionEnd={(event) => {
+          isComposing.current = false;
+          setLocalText(event.currentTarget.value);
+        }}
         onBlur={() => {
           if (shouldSuppressEditorBlur()) {
             return;
