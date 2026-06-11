@@ -16,7 +16,7 @@ const DB_NAME = "ruleon.db";
 
 let syncedDb: Awaited<ReturnType<typeof createSyncedDB>> | null = null;
 
-async function readSchemaVersion(db: WasmDB): Promise<string> {
+export async function readSchemaVersion(db: WasmDB): Promise<string> {
   const rows = await db.execA<[number | bigint]>(
     `SELECT value FROM crsql_master WHERE key = 'schema_version'`,
   );

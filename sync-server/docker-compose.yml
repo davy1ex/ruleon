@@ -1,0 +1,31 @@
+services:
+  sync-server:
+    build:
+      context: ..
+      dockerfile: sync-server/Dockerfile
+    ports:
+      - "${PORT:-8080}:8080"
+    env_file:
+      - .env
+    environment:
+      PORT: 8080
+    volumes:
+      - sync-dbs:/app/dbs
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "curl",
+          "-f",
+          "-H",
+          "X-API-Key: ${API_KEY}",
+          "http://localhost:8080/health",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  sync-dbs:

@@ -21,7 +21,11 @@ import {
   stmts,
   txGates,
 } from "./workerContext";
-import { startSyncInWorker, stopSyncInWorker } from "./workerSync";
+import {
+  readSchemaVersion,
+  startSyncInWorker,
+  stopSyncInWorker,
+} from "./workerSync";
 
 type SqlBind = Parameters<WasmDB["exec"]>[1];
 
@@ -163,6 +167,9 @@ export async function handleWorkerRequest(message: WorkerRequest): Promise<void>
       case "syncStop":
         stopSyncInWorker();
         respond(requestId);
+        break;
+      case "getSchemaVersion":
+        respond(requestId, await readSchemaVersion(db!));
         break;
       case "close":
         stopSyncInWorker();

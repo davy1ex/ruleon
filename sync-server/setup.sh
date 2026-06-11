@@ -97,6 +97,50 @@ PORT=${PORT}
 EOF
 }
 
+detect_lan_ipv4() {
+  local ip iface
+  if [[ "$(uname -s)" == "Darwin" ]]; then
+    for iface in en0 en1; do
+      ip="$(ipconfig getifaddr "$iface" 2>/dev/null || true)"
+      if [[ -n "$ip" ]]; then
+        echo "$ip"
+        return 0
+      fi
+    done
+    return 1
+  fi
+
+  if command -v hostname >/dev/null 2>&1; then
+    ip="$(hostname -I 2>/dev/null | awk '{print $1}')"
+    if [[ -n "$ip" && "$ip" != "127.0.0.1" ]]; then
+      echo "$ip"
+      return 0
+    fi
+  fi
+
+  if command -v ip >/dev/null 2>&1; then
+    ip="$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{for (i=1;i<=NF;i++) if ($i=="src") {print $(i+1); exit}}')"
+    if [[ -n "$ip" ]]; then
+      echo "$ip"
+      return 0
+    fi
+  fi
+
+  return 1
+}
+
+build_deep_link() {
+  local ws_url="$1"
+  local api_key="$2"
+  node -e "
+    const params = new URLSearchParams({
+      url: process.argv[1],
+      key: process.argv[2],
+    });
+    console.log('ruleon://sync?' + params.toString());
+  " "$ws_url" "$api_key"
+}
+
 NODE_BIN_DIR="$(find_node_bin_dir || true)"
 if [[ -z "$NODE_BIN_DIR" ]]; then
   cat >&2 <<'EOF'
@@ -151,15 +195,32 @@ SCHEMA_VERSION="$(node -e "
   console.log(cryb64(sql).toString());
 " "$ROOT" 2>/dev/null || echo "unknown")"
 
+LAN_IP="$(detect_lan_ipv4 || true)"
+LAN_WS_URL=""
+if [[ -n "$LAN_IP" ]]; then
+  LAN_WS_URL="ws://${LAN_IP}:${PORT}/sync"
+fi
+DEEP_LINK="$(build_deep_link "${LAN_WS_URL:-$WS_URL}" "$API_KEY")"
+
 cat <<EOF
 
 ════════════════════════════════════════════════════════════
   Ruleon sync server — connection settings
 ════════════════════════════════════════════════════════════
 
-  WebSocket URL : ${WS_URL}
-  API key       : ${API_KEY}
-  Schema version: ${SCHEMA_VERSION}
+  WebSocket URL (localhost) : ${WS_URL}
+EOF
+
+if [[ -n "$LAN_WS_URL" ]]; then
+  cat <<EOF
+  WebSocket URL (LAN/Android): ${LAN_WS_URL}
+EOF
+fi
+
+cat <<EOF
+  API key                   : ${API_KEY}
+  Schema version            : ${SCHEMA_VERSION}
+  Deep link (QR)            : ${DEEP_LINK}
 
   In Ruleon app:
     Settings → Sync
@@ -167,6 +228,8 @@ cat <<EOF
       • WebSocket URL: ${WS_URL}
       • API key: ${API_KEY}
     Then click "Save & Restart"
+
+  Android: scan the QR below or open the deep link on your phone.
 
   Quick-add (Inbox) API:
     POST http://localhost:${PORT}/api/inbox
@@ -180,7 +243,11 @@ cat <<EOF
       -d '{"text":"Buy milk"}'
 
   Start server:
-    cd sync-server && npm start
+    npm run sync:start          # from repo root
+    cd sync-server && npm start # or from sync-server/
+
+  Dev with auto-start:
+    npm run dev:sync            # from repo root (requires .env)
 
   Or next time:
     ./setup.sh --start
@@ -188,6 +255,11 @@ cat <<EOF
 ════════════════════════════════════════════════════════════
 
 EOF
+
+if command -v npx >/dev/null 2>&1; then
+  echo "→ QR code for Android setup:"
+  npx --yes qrcode-terminal "$DEEP_LINK" 2>/dev/null || echo "  (QR render skipped — use deep link URL above)"
+fi
 
 if [[ "$START_SERVER" -eq 1 ]]; then
   echo "→ Starting sync server…"

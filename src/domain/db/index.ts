@@ -28,3 +28,12 @@ export function stopSync(): void {
   void rpc.request("syncStop", {});
   setWorkerSyncStatusHandler(null);
 }
+
+export async function getLocalSchemaVersion(): Promise<string> {
+  const rpc = getWorkerRpc();
+  if (!rpc) {
+    return "0";
+  }
+  const version = (await rpc.request("getSchemaVersion", {})) as string;
+  return version ?? "0";
+}

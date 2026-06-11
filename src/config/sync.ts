@@ -13,12 +13,51 @@ export function getSyncServerUrl(storedUrl?: string): string {
   return trimmed || getDefaultSyncUrl();
 }
 
-/** Derive inbox HTTP URL from a WebSocket sync URL */
-export function getInboxApiUrl(syncUrl?: string): string {
+function httpBaseFromSyncUrl(syncUrl?: string): string {
   const ws = getSyncServerUrl(syncUrl);
   const parsed = new URL(ws);
   const scheme = parsed.protocol === "wss:" ? "https:" : "http:";
-  return `${scheme}//${parsed.host}/api/inbox`;
+  return `${scheme}//${parsed.host}`;
+}
+
+/** Derive inbox HTTP URL from a WebSocket sync URL */
+export function getInboxApiUrl(syncUrl?: string): string {
+  return `${httpBaseFromSyncUrl(syncUrl)}/api/inbox`;
+}
+
+/** Derive health check HTTP URL from a WebSocket sync URL */
+export function getHealthApiUrl(syncUrl?: string): string {
+  return `${httpBaseFromSyncUrl(syncUrl)}/health`;
+}
+
+export function buildSyncDeepLink(url: string, apiKey: string): string {
+  const params = new URLSearchParams({
+    url: url.trim(),
+    key: apiKey.trim(),
+  });
+  return `ruleon://sync?${params.toString()}`;
+}
+
+export interface SyncDeepLinkPayload {
+  url: string;
+  apiKey: string;
+}
+
+export function parseSyncDeepLink(href: string): SyncDeepLinkPayload | null {
+  try {
+    const parsed = new URL(href);
+    if (parsed.protocol !== "ruleon:" || parsed.host !== "sync") {
+      return null;
+    }
+    const url = parsed.searchParams.get("url")?.trim();
+    const apiKey = parsed.searchParams.get("key")?.trim();
+    if (!url || !apiKey) {
+      return null;
+    }
+    return { url, apiKey };
+  } catch {
+    return null;
+  }
 }
 
 export function isNativePlatform(): boolean {

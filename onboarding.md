@@ -169,13 +169,31 @@ Store обновляется реактивно
 
 Опциональный **sync-server** (`sync-server/`) — Node.js + WebSocket.
 
+### Локальная разработка
+
 ```bash
-cd sync-server
-cp .env.example .env   # задать API_KEY
-./setup.sh --start
+npm run sync:setup -- --start   # создаёт .env, печатает URL, LAN IP и QR
+npm run dev:sync                # Vite + sync-server (после первого setup)
 ```
 
-В клиенте: Settings → Sync → URL и API key. Клиент отправляет `authToken` и `schema_version` при handshake. Несовпадение версии схемы отклоняет подключение.
+Или из `sync-server/`: `./setup.sh --start`.
+
+`setup.sh` автоматически генерирует `API_KEY`, копирует схему БД и выводит:
+- `ws://localhost:8080/sync` — для браузера/Electron
+- `ws://192.168.x.x:8080/sync` — LAN URL для Android
+- QR-код с deep link `ruleon://sync?url=…&key=…` — сканировать на телефоне
+
+В клиенте: Settings → Sync → URL и API key → **Test connection** → **Save & Restart**. Клиент отправляет `authToken` и `schema_version` при handshake. Несовпадение версии схемы отклоняет подключение.
+
+### Деплой (Docker)
+
+```bash
+cd sync-server
+cp .env.example .env   # задать API_KEY вручную
+docker compose up -d
+```
+
+Volume `sync-dbs` хранит `dbs/` между перезапусками.
 
 Быстрое добавление в Inbox с сервера: `POST /api/inbox` с `{"text":"…"}`.
 

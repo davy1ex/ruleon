@@ -110,12 +110,14 @@ Sync-server **requires** `API_KEY` in `sync-server/.env` (see `.env.example`). W
 
 **Inbox quick-add:** `POST /api/inbox` with `{"text":"…"}` creates a child block on the server-side **Inbox** page; CR-SQLite propagates it to Electron/Android on next sync.
 
-Client: Settings → Sync → **API key** must match server `API_KEY`. Transport sends `authToken` and `schema_version` via `statusTransport.ts`.
+Client: Settings → Sync → **API key** must match server `API_KEY`. Transport sends `authToken` and `schema_version` via `statusTransport.ts`. **Test connection** hits `GET /health`; Android can scan a QR deep link (`ruleon://sync?url=…&key=…`).
 
 ```bash
-cp sync-server/.env.example sync-server/.env
-# edit API_KEY, then:
-cd sync-server && npm start
+npm run sync:setup -- --start   # local: auto .env + LAN IP + QR
+npm run dev:sync                # Vite + sync-server together
+
+# Docker (VPS):
+cd sync-server && cp .env.example .env && docker compose up -d
 ```
 
 ## Feature modules (summary)

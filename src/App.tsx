@@ -3,6 +3,7 @@ import { useOutlinerStore } from "./store/outlinerStore";
 import { useSettingsStore } from "./store/settingsStore";
 import { useWorkspaceStore } from "./store/workspaceStore";
 import { useIsMobile } from "./hooks/useIsMobile";
+import { useSyncDeepLink } from "./hooks/useSyncDeepLink";
 import { AppLayout } from "./ui/layout/AppLayout";
 import { MobileLayout } from "./ui/layout/MobileLayout";
 import { MobileWorkspacePane } from "./ui/layout/MobileWorkspacePane";
@@ -24,6 +25,8 @@ export default function App() {
     (state) => state.syncActiveLeafNavigation,
   );
 
+  useSyncDeepLink(ready);
+
   useEffect(() => {
     useSettingsStore.getState().hydrate();
     hydrateWorkspace();
@@ -37,6 +40,10 @@ export default function App() {
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
   }, [theme]);
+
+  useEffect(() => {
+    document.documentElement.dataset.layout = isMobile ? "mobile" : "desktop";
+  }, [isMobile]);
 
   if (!ready) {
     return null;

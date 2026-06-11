@@ -5,6 +5,8 @@ import {
   useSettingsStore,
 } from "../../store/settingsStore";
 import { Button } from "../Button";
+import { SyncConnectionTest } from "../components/SyncConnectionTest";
+import { SyncSetupQr } from "../components/SyncSetupQr";
 import { SyncIndicator } from "../SyncIndicator";
 import { SettingsToggle } from "./SettingsToggle";
 
@@ -115,6 +117,16 @@ export function SyncStatusPanel({
             autoComplete="off"
           />
         </label>
+        <SyncConnectionTest
+          url={sync.url}
+          apiKey={sync.apiKey}
+          enabled={sync.enabled}
+        />
+        <SyncSetupQr
+          url={sync.url}
+          apiKey={sync.apiKey}
+          enabled={sync.enabled}
+        />
       </div>
       {standalone ? (
         <Button label="Save & Restart" onClick={handleSave} variant="primary" />

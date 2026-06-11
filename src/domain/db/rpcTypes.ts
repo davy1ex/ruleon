@@ -39,6 +39,7 @@ export type WorkerRequest =
   | { type: "rxUnsubscribe"; requestId: number; subscriptionId: number }
   | { type: "syncStart"; requestId: number; url: string; apiKey: string }
   | { type: "syncStop"; requestId: number }
+  | { type: "getSchemaVersion"; requestId: number }
   | { type: "close"; requestId: number };
 
 export type WorkerResponse =
