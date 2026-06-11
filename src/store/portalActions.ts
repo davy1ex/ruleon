@@ -1,4 +1,5 @@
 import { getPortalBlocks } from "../domain/outliner/queries";
+import { applyTaskLifecycleMetadata } from "../domain/outliner/metadata";
 import type { PortalFilter } from "../domain/outliner/portalTypes";
 import { portalCacheKey } from "../domain/outliner/portalTypes";
 import type { FlatOutlineNode, OutlineNodeRow } from "../domain/outliner/types";
@@ -76,16 +77,25 @@ export function patchPortalResultsTaskStatus(
       continue;
     }
 
-    const filter = key.endsWith(":todo") ? "todo" : "all";
+    const filter = key.split(":").at(-1) as PortalFilter | undefined;
     result[key] = rows
       .map((row) =>
-        idSet.has(row.id) ? { ...row, task_status: nextStatus } : row,
+        idSet.has(row.id)
+          ? {
+              ...row,
+              task_status: nextStatus,
+              metadata: applyTaskLifecycleMetadata(row.metadata, nextStatus),
+            }
+          : row,
       )
       .filter((row) => {
-        if (filter !== "todo") {
-          return true;
+        if (filter === "todo") {
+          return row.task_status === "TODO";
         }
-        return row.task_status === "TODO";
+        if (filter === "done") {
+          return row.task_status === "DONE";
+        }
+        return true;
       });
   }
 

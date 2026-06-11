@@ -75,7 +75,7 @@ test.describe("Outliner E2E", () => {
     const secondEditor = rows.nth(1).locator(sel.editor);
     await secondEditor.click();
     await secondEditor.pressSequentially("World");
-    await expect(secondEditor).toHaveText("World");
+    await expect(secondEditor).toHaveValue("World");
 
     await pressAtBlockStart(secondEditor);
     await secondEditor.press("Backspace");

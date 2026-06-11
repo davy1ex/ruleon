@@ -1,9 +1,12 @@
 import { create } from "zustand";
+import { PLUGINS_CONFIG_KEY } from "../domain/settings/settingKeys";
+import { setSetting } from "../domain/settings/settingsRepo";
+import { getDbContext } from "./dbContext";
+import { useOutlinerStore } from "./outlinerStore";
 import {
   createLayoutActions,
   createOpenActions,
   createPersistenceActions,
-  createWidgetActions,
 } from "./workspaceActions";
 import { createLeafTabActions } from "./workspaceLeafActions";
 import {
@@ -16,14 +19,14 @@ import {
   syncNavigationFromLeaf,
 } from "./workspaceHelpers";
 import type { WorkspaceStore } from "./workspaceTypes";
+import { defaultPlugins } from "./workspaceTypes";
 
 export type {
   EditorLeafState,
   JournalLeafState,
+  RightWidgetType,
   SearchLeafState,
   SettingsLeafState,
-  SidebarWidget,
-  SidebarWidgetType,
   TrashLeafState,
   WorkspaceLayout,
   WorkspaceLeaf,
@@ -34,7 +37,6 @@ export type {
 export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
   const initialJournal = createJournalLeaf();
   const openActions = createOpenActions(get);
-  const widgetActions = createWidgetActions(get, set);
   const layoutActions = createLayoutActions(get, set);
   const persistenceActions = createPersistenceActions(get, set);
   const leafTabActions = createLeafTabActions(get, set);
@@ -43,11 +45,57 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
     leaves: { [initialJournal.id]: initialJournal },
     leafOrder: [initialJournal.id],
     activeLeafId: initialJournal.id,
-    sidebarWidgets: [],
     layout: defaultLayout(),
+    plugins: defaultPlugins(),
+    togglePlugin: (pluginId) => {
+      const wasEnabled = get().plugins[pluginId];
+      set((state) => ({
+        plugins: {
+          ...state.plugins,
+          [pluginId]: !state.plugins[pluginId],
+        },
+      }));
+
+      if (pluginId === "gamification" && wasEnabled && get().layout.rightWidget === "profile") {
+        set({
+          layout: {
+            ...get().layout,
+            rightWidget: null,
+          },
+        });
+        schedulePersist(get);
+      }
+
+      if (pluginId === "calendar" && wasEnabled && get().layout.rightWidget === "calendar") {
+        set({
+          layout: {
+            ...get().layout,
+            rightWidget: null,
+          },
+        });
+        schedulePersist(get);
+      }
+
+      const updatedPlugins = get().plugins;
+      const db = getDbContext()?.db;
+      if (db) {
+        void setSetting(db, PLUGINS_CONFIG_KEY, updatedPlugins);
+      }
+    },
     commandPaletteOpen: false,
+    toggleCommandPalette: (force) =>
+      set((state) => ({
+        commandPaletteOpen:
+          force !== undefined ? force : !state.commandPaletteOpen,
+      })),
     setCommandPaletteOpen: (open) => set({ commandPaletteOpen: open }),
     openCommandPalette: () => set({ commandPaletteOpen: true }),
+    globalQuickAddOpen: false,
+    toggleGlobalQuickAdd: (force) =>
+      set((state) => ({
+        globalQuickAddOpen:
+          force !== undefined ? force : !state.globalQuickAddOpen,
+      })),
 
     addLeaf: (type, state, opts) => {
       const id = generateId();
@@ -115,16 +163,18 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
         return;
       }
 
-      set({
-        activeLeafId: id,
-        leaves: {
-          ...get().leaves,
-          [id]: { ...leaf, lastFocusedAt: Date.now() },
-        },
-      });
-
-      syncNavigationFromLeaf(leaf);
-      schedulePersist(get);
+      void (async () => {
+        await useOutlinerStore.getState().flushPendingContent();
+        set({
+          activeLeafId: id,
+          leaves: {
+            ...get().leaves,
+            [id]: { ...leaf, lastFocusedAt: Date.now() },
+          },
+        });
+        syncNavigationFromLeaf(leaf);
+        schedulePersist(get);
+      })();
     },
 
     updateLeafState: (id, patch) => {
@@ -154,7 +204,6 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
 
     ...leafTabActions,
     ...openActions,
-    ...widgetActions,
     ...layoutActions,
     ...persistenceActions,
   };

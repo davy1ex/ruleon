@@ -3,6 +3,25 @@ import { getNodeById, getSiblings } from "../queries";
 import { sanitizeSortOrder } from "../sortOrder";
 import { currentTimestamp } from "../seed";
 
+export async function moveNodeToPageRoot(
+  db: DB,
+  nodeId: string,
+  pageRootId: string,
+): Promise<boolean> {
+  const node = await getNodeById(db, nodeId);
+  if (!node || node.id === pageRootId) {
+    return false;
+  }
+
+  const pageRoot = await getNodeById(db, pageRootId);
+  if (!pageRoot || pageRoot.parent_id !== null) {
+    return false;
+  }
+
+  const newOrder = sanitizeSortOrder(await nextChildOrder(db, pageRootId));
+  return moveNode(db, nodeId, pageRootId, newOrder);
+}
+
 export async function moveNode(
   db: DB,
   id: string,

@@ -1,10 +1,16 @@
 import { useEffect } from "react";
+import { useOutlinerStore } from "../store/outlinerStore";
 import { useWorkspaceStore } from "../store/workspaceStore";
 
 function closeTabOrPalette(): void {
   const state = useWorkspaceStore.getState();
+  const outliner = useOutlinerStore.getState();
+  if (outliner.moveTargetNodeId != null) {
+    outliner.closeMoveTarget();
+    return;
+  }
   if (state.commandPaletteOpen) {
-    state.setCommandPaletteOpen(false);
+    state.toggleCommandPalette(false);
     return;
   }
   if (state.leafOrder.length > 1 && state.activeLeafId) {
@@ -32,10 +38,11 @@ function activateAdjacentLeaf(direction: 1 | -1): void {
 }
 
 export function useWorkspaceShortcuts(): void {
-  const openCommandPalette = useWorkspaceStore((s) => s.openCommandPalette);
+  const toggleCommandPalette = useWorkspaceStore((s) => s.toggleCommandPalette);
   const openSearchTab = useWorkspaceStore((s) => s.openSearchTab);
   const commandPaletteOpen = useWorkspaceStore((s) => s.commandPaletteOpen);
-  const setCommandPaletteOpen = useWorkspaceStore((s) => s.setCommandPaletteOpen);
+  const moveTargetNodeId = useOutlinerStore((s) => s.moveTargetNodeId);
+  const closeMoveTarget = useOutlinerStore((s) => s.closeMoveTarget);
 
   useEffect(() => {
     const disposeElectron = window.electronAPI?.onCloseTabShortcut(() => {
@@ -43,10 +50,17 @@ export function useWorkspaceShortcuts(): void {
     });
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && commandPaletteOpen) {
-        event.preventDefault();
-        setCommandPaletteOpen(false);
-        return;
+      if (event.key === "Escape") {
+        if (moveTargetNodeId != null) {
+          event.preventDefault();
+          closeMoveTarget();
+          return;
+        }
+        if (commandPaletteOpen) {
+          event.preventDefault();
+          toggleCommandPalette(false);
+          return;
+        }
       }
 
       if (event.ctrlKey && !event.altKey && event.code === "Tab") {
@@ -62,7 +76,7 @@ export function useWorkspaceShortcuts(): void {
 
       if (event.code === "KeyK") {
         event.preventDefault();
-        openCommandPalette();
+        toggleCommandPalette(true);
         return;
       }
 
@@ -84,9 +98,10 @@ export function useWorkspaceShortcuts(): void {
       window.removeEventListener("keydown", handleKeyDown, true);
     };
   }, [
+    closeMoveTarget,
     commandPaletteOpen,
-    openCommandPalette,
+    moveTargetNodeId,
     openSearchTab,
-    setCommandPaletteOpen,
+    toggleCommandPalette,
   ]);
 }

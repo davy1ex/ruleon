@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { BlockContentJSON, BlockContentNode } from "../../../domain/outliner/contentTypes";
+import { RichTextInline } from "../../../ui/components/RichText";
 
 interface RenderInactiveDocOptions {
   onNavigateWikiLink?: (pageName: string) => void;
@@ -11,7 +12,11 @@ function renderNode(
   options: RenderInactiveDocOptions,
 ): ReactNode {
   if (node.type === "text") {
-    return <span key={index}>{node.text ?? ""}</span>;
+    return (
+      <span key={index}>
+        <RichTextInline content={node.text ?? ""} />
+      </span>
+    );
   }
 
   if (node.type === "hardBreak") {

@@ -3,6 +3,7 @@ interface SidebarItemProps {
   label: string;
   isActive: boolean;
   onClick: () => void;
+  onMouseDown?: (event: React.MouseEvent<HTMLDivElement>) => void;
 }
 
 export const SidebarItem = ({
@@ -10,10 +11,12 @@ export const SidebarItem = ({
   label,
   isActive,
   onClick,
+  onMouseDown,
 }: SidebarItemProps) => (
   <div
     role="button"
     tabIndex={0}
+    onMouseDown={onMouseDown}
     onClick={onClick}
     onKeyDown={(event) => {
       if (event.key === "Enter" || event.key === " ") {

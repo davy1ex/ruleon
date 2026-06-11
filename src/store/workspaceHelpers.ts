@@ -3,7 +3,7 @@ import { useOutlinerStore } from "./outlinerStore";
 import type {
   EditorLeafState,
   JournalLeafState,
-  PersistedWorkspace,
+  RightWidgetType,
   SearchLeafState,
   SettingsLeafState,
   TrashLeafState,
@@ -11,14 +11,12 @@ import type {
   WorkspaceLeaf,
   WorkspaceLeafState,
   WorkspaceLeafType,
+  WorkspacePlugins,
   WorkspaceStore,
 } from "./workspaceTypes";
+import { defaultPlugins } from "./workspaceTypes";
 
 export const STORAGE_KEY = "ruleon.workspace";
-const SIDEBAR_MIN = 200;
-const SIDEBAR_MAX = 480;
-const RIGHT_SIDEBAR_MIN = 200;
-const RIGHT_SIDEBAR_MAX = 480;
 
 export const DEFAULT_TITLES: Record<WorkspaceLeafType, string> = {
   editor: "Page",
@@ -34,9 +32,9 @@ export function generateId(): string {
 
 export function defaultLayout(): WorkspaceLayout {
   return {
-    leftSidebarWidth: 256,
-    rightSidebarOpen: false,
-    rightSidebarWidth: 280,
+    leftSidebarOpen: true,
+    rightWidget: null,
+    lastRightWidget: "outline",
   };
 }
 
@@ -76,25 +74,6 @@ export function syncNavigationFromLeaf(leaf: WorkspaceLeaf): void {
   }
 }
 
-export function applyLayoutCss(layout: WorkspaceLayout): void {
-  document.documentElement.style.setProperty(
-    "--layout-left-sidebar-width",
-    `${layout.leftSidebarWidth}px`,
-  );
-  document.documentElement.style.setProperty(
-    "--layout-right-sidebar-width",
-    `${layout.rightSidebarWidth}px`,
-  );
-}
-
-export function clampSidebarWidth(width: number): number {
-  return Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, width));
-}
-
-export function clampRightSidebarWidth(width: number): number {
-  return Math.min(RIGHT_SIDEBAR_MAX, Math.max(RIGHT_SIDEBAR_MIN, width));
-}
-
 let persistTimer: ReturnType<typeof setTimeout> | null = null;
 
 export function schedulePersist(getState: () => WorkspaceStore): void {
@@ -119,13 +98,86 @@ export function createJournalLeaf(): WorkspaceLeaf {
   };
 }
 
-export function loadPersisted(): Partial<PersistedWorkspace> | null {
+interface LegacySidebarWidget {
+  type: string;
+  order?: number;
+}
+
+interface LegacyPersistedWorkspace {
+  leaves?: Record<string, WorkspaceLeaf>;
+  leafOrder?: string[];
+  activeLeafId?: string | null;
+  plugins?: Partial<WorkspacePlugins>;
+  sidebarWidgets?: LegacySidebarWidget[];
+  layout?: Partial<WorkspaceLayout> & {
+    leftSidebarWidth?: number;
+    rightSidebarOpen?: boolean;
+    rightSidebarWidth?: number;
+  };
+}
+
+function mapLegacyWidgetType(type: string): RightWidgetType | null {
+  if (
+    type === "pomodoro" ||
+    type === "outline" ||
+    type === "calendar" ||
+    type === "profile"
+  ) {
+    return type;
+  }
+  return null;
+}
+
+export function migrateLayout(raw: LegacyPersistedWorkspace): WorkspaceLayout {
+  const layout = raw.layout;
+  if (
+    layout &&
+    typeof layout.leftSidebarOpen === "boolean" &&
+    "rightWidget" in layout
+  ) {
+    return {
+      leftSidebarOpen: layout.leftSidebarOpen,
+      rightWidget: layout.rightWidget ?? null,
+      lastRightWidget: layout.lastRightWidget ?? "outline",
+    };
+  }
+
+  const widgets = raw.sidebarWidgets ?? [];
+  const sorted = [...widgets].sort(
+    (a, b) => (a.order ?? 0) - (b.order ?? 0),
+  );
+  let rightWidget: RightWidgetType | null = null;
+
+  if (layout?.rightSidebarOpen && sorted.length > 0) {
+    rightWidget = mapLegacyWidgetType(sorted[0].type);
+  } else {
+    for (const widget of sorted) {
+      const mapped = mapLegacyWidgetType(widget.type);
+      if (mapped) {
+        rightWidget = mapped;
+        break;
+      }
+    }
+  }
+
+  return {
+    leftSidebarOpen: true,
+    rightWidget,
+    lastRightWidget: rightWidget ?? "outline",
+  };
+}
+
+export function migratePlugins(_raw: LegacyPersistedWorkspace): WorkspacePlugins {
+  return defaultPlugins();
+}
+
+export function loadPersisted(): LegacyPersistedWorkspace | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
       return null;
     }
-    return JSON.parse(raw) as PersistedWorkspace;
+    return JSON.parse(raw) as LegacyPersistedWorkspace;
   } catch {
     return null;
   }
@@ -139,13 +191,11 @@ export function findLeafByType(
 }
 
 export function persistWorkspace(get: () => WorkspaceStore): void {
-  const { leaves, leafOrder, activeLeafId, sidebarWidgets, layout } =
-    get();
-  const data: PersistedWorkspace = {
+  const { leaves, leafOrder, activeLeafId, layout } = get();
+  const data = {
     leaves,
     leafOrder,
     activeLeafId,
-    sidebarWidgets,
     layout,
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));

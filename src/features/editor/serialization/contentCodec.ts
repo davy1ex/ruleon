@@ -1,4 +1,4 @@
-export { parseStoredContent } from "./parseStoredContent";
+export { parseStoredContent, plainTextToBlockContent } from "./parseStoredContent";
 export { serializeForDb } from "./serializeForDb";
 export { extractPlainText } from "./extractPlainText";
 export {

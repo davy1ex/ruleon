@@ -7,9 +7,12 @@
     "node": ">=20 <24"
   },
   "scripts": {
+    "preinstall": "node scripts/check-node.mjs",
+    "setup": "./setup.sh",
     "sync-schema": "cp ../src/domain/db/schema.sql schemas/ruleon",
     "migrate": "node migrateDbs.mjs",
-    "start": "node server.mjs"
+    "start": "node server.mjs",
+    "cap:build": "node ../scripts/build-cap.mjs"
   },
   "dependencies": {
     "@vlcn.io/ws-server": "^0.2.3",

@@ -11,6 +11,8 @@ import {
   loadApiKey,
 } from "./auth.mjs";
 import { migrateServerDatabases } from "./migrateDbs.mjs";
+import { createInboxHandler } from "./routes/inbox.mjs";
+import { loadExpectedSchemaVersion } from "./schemaVersion.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, ".env") });
@@ -18,6 +20,8 @@ dotenv.config({ path: path.join(__dirname, ".env") });
 const API_KEY = loadApiKey();
 const DB_FOLDER = path.join(__dirname, "dbs");
 const SCHEMA_FOLDER = path.join(__dirname, "schemas");
+const SCHEMA_PATH = path.join(SCHEMA_FOLDER, "ruleon");
+const EXPECTED_SCHEMA_VERSION = loadExpectedSchemaVersion(SCHEMA_PATH);
 
 fs.mkdirSync(DB_FOLDER, { recursive: true });
 migrateServerDatabases(DB_FOLDER, SCHEMA_FOLDER);
@@ -27,11 +31,14 @@ const app = express();
 const server = http.createServer(app);
 const requireAuth = createHttpAuthMiddleware(API_KEY);
 
+app.use(express.json({ limit: "256kb" }));
 app.use(requireAuth);
 
 app.get("/health", (_req, res) => {
-  res.json({ ok: true });
+  res.json({ ok: true, schemaVersion: EXPECTED_SCHEMA_VERSION });
 });
+
+app.post("/api/inbox", createInboxHandler(DB_FOLDER, SCHEMA_FOLDER));
 
 attachWebsocketServer(
   server,
@@ -42,9 +49,13 @@ attachWebsocketServer(
   },
   undefined,
   null,
-  createWebsocketAuthenticator(API_KEY),
+  createWebsocketAuthenticator(API_KEY, EXPECTED_SCHEMA_VERSION),
 );
 
 server.listen(PORT, () => {
-  console.log(`Sync server: ws://localhost:${PORT}/sync (API_KEY required)`);
+  console.log(
+    `Sync server: ws://localhost:${PORT}/sync (API_KEY + schema_version required)`,
+  );
+  console.log(`Schema version: ${EXPECTED_SCHEMA_VERSION}`);
+  console.log(`Inbox API: POST http://localhost:${PORT}/api/inbox`);
 });

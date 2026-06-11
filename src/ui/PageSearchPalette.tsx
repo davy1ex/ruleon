@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { Search } from "lucide-react";
 import type { PaletteItem } from "./usePageSearchPalette";
 
 interface PageSearchPaletteProps {
@@ -11,6 +12,8 @@ interface PageSearchPaletteProps {
   onInputKeyDown: (event: React.KeyboardEvent<HTMLInputElement>) => void;
   autoFocus?: boolean;
   className?: string;
+  placeholder?: string;
+  footerHint?: string;
 }
 
 export function PageSearchPalette({
@@ -23,31 +26,36 @@ export function PageSearchPalette({
   onInputKeyDown,
   autoFocus = true,
   className = "",
+  placeholder = "Search pages or type a command...",
+  footerHint = "↵ open",
 }: PageSearchPaletteProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (autoFocus) {
-      inputRef.current?.focus();
+    if (!autoFocus) {
+      return;
     }
+    const timer = window.setTimeout(() => inputRef.current?.focus(), 50);
+    return () => window.clearTimeout(timer);
   }, [autoFocus]);
 
   return (
     <div
-      className={`overflow-hidden rounded-lg border border-border bg-surface-modal shadow-lg ${className}`}
+      className={`overflow-hidden rounded-xl border border-border bg-surface-modal shadow-2xl ${className}`}
     >
-      <div className="border-b border-border px-4 py-3">
+      <div className="flex items-center border-b border-border px-4 py-3">
+        <Search size={18} className="mr-3 shrink-0 text-text-muted" />
         <input
           ref={inputRef}
           type="text"
           value={query}
-          placeholder="Search pages or type a date (2026-06-09)…"
+          placeholder={placeholder}
           onChange={(event) => onQueryChange(event.target.value)}
           onKeyDown={onInputKeyDown}
-          className="w-full bg-surface-input text-[15px] text-text-emphasis outline-none placeholder:text-text-muted"
+          className="flex-1 bg-transparent text-[15px] text-text-emphasis outline-none placeholder:text-text-muted"
         />
       </div>
-      <ul className="max-h-72 overflow-y-auto py-2">
+      <ul className="max-h-96 overflow-y-auto py-2">
         {paletteItems.length === 0 ? (
           <li className="px-4 py-2 text-sm text-text-muted">No pages found</li>
         ) : (
@@ -57,13 +65,20 @@ export function PageSearchPalette({
                 type="button"
                 onMouseEnter={() => onHighlightIndexChange(index)}
                 onClick={() => void onSelectItem(item)}
-                className={`w-full px-4 py-2 text-left text-[15px] transition-colors ${
+                className={`w-full px-4 py-2 text-left text-sm transition-colors ${
                   index === highlightIndex
                     ? "border-l-2 border-accent bg-interactive-selected pl-[14px] text-text-emphasis"
                     : "border-l-2 border-transparent text-text-normal hover:bg-interactive-hover"
                 }`}
               >
-                {item.kind === "jump" ? `↗ ${item.label}` : item.label}
+                {item.kind === "jump" && "↗ "}
+                {item.kind === "create" && "+ "}
+                {item.label}
+                {item.kind === "create" ? (
+                  <span className="ml-2 rounded bg-surface-secondary px-1 text-xs text-text-muted">
+                    Enter
+                  </span>
+                ) : null}
               </button>
             </li>
           ))
@@ -71,7 +86,7 @@ export function PageSearchPalette({
       </ul>
       <div className="border-t border-border px-4 py-2 text-xs text-text-muted">
         <span className="mr-3">↑↓ navigate</span>
-        <span className="mr-3">↵ open</span>
+        <span className="mr-3">{footerHint}</span>
         <span>esc close</span>
       </div>
     </div>

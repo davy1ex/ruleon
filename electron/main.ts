@@ -1,10 +1,50 @@
-import { app, BrowserWindow, ipcMain } from "electron";
+import { app, BrowserWindow, globalShortcut, ipcMain } from "electron";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { DualBackupPayload } from "./backupTypes.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+const GLOBAL_QUICK_ADD_SHORTCUT = "CommandOrControl+Shift+Space";
+
+let mainWindow: BrowserWindow | null = null;
+
+function registerGlobalCaptureShortcut(win: BrowserWindow): void {
+  mainWindow = win;
+
+  win.on("closed", () => {
+    if (mainWindow === win) {
+      mainWindow = null;
+    }
+  });
+
+  globalShortcut.unregister(GLOBAL_QUICK_ADD_SHORTCUT);
+
+  const isRegistered = globalShortcut.register(
+    GLOBAL_QUICK_ADD_SHORTCUT,
+    () => {
+      if (!mainWindow || mainWindow.isDestroyed()) {
+        return;
+      }
+
+      if (mainWindow.isMinimized()) {
+        mainWindow.restore();
+      }
+
+      if (!mainWindow.isVisible()) {
+        mainWindow.show();
+      }
+
+      mainWindow.focus();
+      mainWindow.webContents.send("trigger-global-quick-add");
+    },
+  );
+
+  if (!isRegistered) {
+    console.error("CRITICAL: Systems hotkey registration failed.");
+  }
+}
 
 function formatBackupTimestamp(date: Date): string {
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -55,6 +95,7 @@ function createWindow(): void {
   });
 
   attachWorkspaceShortcuts(win);
+  registerGlobalCaptureShortcut(win);
 
   if (process.env.VITE_DEV_SERVER_URL) {
     void win.loadURL(process.env.VITE_DEV_SERVER_URL);
@@ -106,4 +147,8 @@ app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
     app.quit();
   }
+});
+
+app.on("will-quit", () => {
+  globalShortcut.unregisterAll();
 });

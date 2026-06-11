@@ -2,14 +2,8 @@
 
 /* Layout constants (theme-independent) */
 :root {
-  --size-ribbon-width: 40px;
-  --size-sidebar-min: 200px;
-  --size-sidebar-max: 480px;
-  --size-sidebar-default: 256px;
+  --size-ribbon-width: 48px;
   --size-tab-height: 36px;
-  --size-right-sidebar-default: 280px;
-  --layout-left-sidebar-width: var(--size-sidebar-default);
-  --layout-right-sidebar-width: var(--size-right-sidebar-default);
 }
 
 /* --- default (light) --- */
@@ -108,6 +102,54 @@
   --color-bullet: #93a2a1;
   --color-bullet-hover: #657b83;
   --color-guide-line: #d3c4a1;
+}
+
+[data-theme="solarized-dark"] {
+  --color-bg-primary: #002b36;
+  --color-bg-secondary: #073642;
+  --color-bg-ribbon: #002b36;
+  --color-bg-sidebar: #073642;
+  --color-bg-workspace: #002b36;
+  --color-bg-tab-bar: #002b36;
+  --color-bg-tab-active: #073642;
+  --color-bg-tab-inactive: transparent;
+  --color-bg-modal: #073642;
+  --color-bg-modal-overlay: rgba(0, 0, 0, 0.55);
+  --color-bg-input: #002b36;
+  --color-bg-code: #073642;
+
+  --color-text-normal: #839496;
+  --color-text-normal-rgb: 131 148 150;
+  --color-text-muted: #657b83;
+  --color-text-emphasis: #93a1a1;
+  --color-text-on-accent: #002b36;
+  --color-text-link: #268bd2;
+  --color-text-danger: #dc322f;
+  --color-text-warning: #b58900;
+  --color-text-success: #859900;
+
+  --color-border: #586e75;
+  --color-border-subtle: #073642;
+  --color-border-strong: #657b83;
+  --color-divider: #073642;
+
+  --color-accent: #268bd2;
+  --color-accent-rgb: 38 139 210;
+  --color-accent-hover: #2aa198;
+  --color-accent-muted: rgba(38, 139, 210, 0.2);
+  --color-surface-hover: #073642;
+  --color-surface-active: #586e75;
+  --color-surface-selected: rgba(38, 139, 210, 0.25);
+  --color-selection: rgba(38, 139, 210, 0.25);
+
+  --color-status-success: #859900;
+  --color-status-warning: #b58900;
+  --color-status-error: #dc322f;
+  --color-status-info: #268bd2;
+
+  --color-bullet: #586e75;
+  --color-bullet-hover: #839496;
+  --color-guide-line: #073642;
 }
 
 [data-theme="dracula"] {

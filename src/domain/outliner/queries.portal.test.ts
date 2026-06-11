@@ -28,6 +28,7 @@ const sampleRow: OutlineNodeDbRow = {
   sort_order: 1,
   collapsed: 0,
   task_status: "TODO",
+  metadata: "{}",
   created_at: 1,
   updated_at: 2,
 };
@@ -56,6 +57,19 @@ describe("getPortalBlocks", () => {
     expect(calls[0]?.sql).not.toContain("task_status = 'TODO'");
   });
 
+  it("filters completed tasks when filter is done", async () => {
+    const { db, calls } = createPortalMockDb([]);
+    await getPortalBlocks(db as unknown as DB, "Target", "done");
+    expect(calls[0]?.sql).toContain("task_status = 'DONE'");
+    expect(calls[0]?.sql).toContain("completed_at");
+  });
+
+  it("resolves COMPLETED target to done filter", async () => {
+    const { db, calls } = createPortalMockDb([]);
+    await getPortalBlocks(db as unknown as DB, "COMPLETED", "todo");
+    expect(calls[0]?.sql).toContain("task_status = 'DONE'");
+  });
+
   it("queries page subtree for open tasks on the target page", async () => {
     const calls: PrepareCall[] = [];
     const db = {
@@ -71,6 +85,7 @@ describe("getPortalBlocks", () => {
                 sort_order: 1,
                 collapsed: 0,
                 task_status: null,
+                metadata: "{}",
                 created_at: 1,
                 updated_at: 1,
               },

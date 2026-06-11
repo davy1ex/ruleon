@@ -25,6 +25,7 @@ import {
   resolveLinkedReferenceState,
 } from "./backlinkActions";
 import { bumpRefreshGeneration } from "./portalActions";
+import { countInboxItems, isSystemInboxPage } from "../domain/outliner/inboxPage";
 import {
   ensureEmptyBlock,
   ensureJournalRoot,
@@ -161,6 +162,7 @@ type FeedRefreshSet = (partial: {
   pagesList?: PageListItem[];
   favoritesList?: PageListItem[];
   trashedPages?: TrashedPageItem[];
+  inboxItemCount?: number;
   focusedId?: string | null;
   selectedIds?: string[];
   portalResultsCache?: Record<string, FlatOutlineNode[] | undefined>;
@@ -183,11 +185,14 @@ export async function runFeedRefresh(
   try {
     const state = get();
     const { currentRootId } = state;
-    const [pagesList, favoritesList, trashedPages] = await Promise.all([
-      getAllPages(db),
-      getFavorites(db),
-      getTrashedPages(db),
-    ]);
+    const [allPages, favoritesList, trashedPages, inboxItemCount] =
+      await Promise.all([
+        getAllPages(db),
+        getFavorites(db),
+        getTrashedPages(db),
+        countInboxItems(db),
+      ]);
+    const pagesList = allPages.filter((page) => !isSystemInboxPage(page));
 
     if (isDailyFeedRootId(currentRootId)) {
       const todayPage = await getOrCreatePage(db, formatDatePageTitle());
@@ -214,10 +219,11 @@ export async function runFeedRefresh(
         pagesList,
         favoritesList,
         trashedPages,
+        inboxItemCount,
         focusedId:
           state.focusedId && visibleIds.has(state.focusedId)
             ? state.focusedId
-            : newBlockId ?? nodesByRootId[todayPage.id]?.[0]?.id ?? null,
+            : newBlockId ?? null,
         selectedIds: state.selectedIds.filter((id) => visibleIds.has(id)),
       });
       return;
@@ -239,10 +245,6 @@ export async function runFeedRefresh(
       Object.values(nodesByRootId).flatMap((nodes) => nodes.map((node) => node.id)),
     );
 
-    const fallbackFocus = isSystemTrashRootId(currentRootId)
-      ? null
-      : nodesByRootId[currentRootId]?.[0]?.id ?? null;
-
     set({
       loading: false,
       error: null,
@@ -251,10 +253,11 @@ export async function runFeedRefresh(
       pagesList,
       favoritesList,
       trashedPages,
+      inboxItemCount,
       focusedId:
         state.focusedId && visibleIds.has(state.focusedId)
           ? state.focusedId
-          : fallbackFocus,
+          : null,
       selectedIds: state.selectedIds.filter((id) => visibleIds.has(id)),
     });
   } catch (error) {

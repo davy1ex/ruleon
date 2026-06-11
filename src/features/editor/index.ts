@@ -1,7 +1,7 @@
-export type { OutlinerEditorCallbacks, BlockContentJSON } from "./types";
-export { createBlockExtensions } from "./createBlockExtensions";
+export type { BlockContentJSON } from "./types";
 export {
   parseStoredContent,
+  plainTextToBlockContent,
   serializeForDb,
   extractPlainText,
   extractLinksAndTagsFromDoc,

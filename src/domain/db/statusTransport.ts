@@ -13,6 +13,7 @@ type TransporOptions = {
   url: string;
   room: string;
   authToken?: string;
+  schemaVersion?: string;
 };
 
 interface Transport {
@@ -73,12 +74,21 @@ class StatusReportingTransport implements Transport {
       }, Math.random() * 2000 + 1000);
     }
 
-    const socket = new WebSocket(options.url, [
-      btoa(
-        `${options.authToken != null ? `auth=${options.authToken},` : ""}room=${
-          options.room
-        }`,
-      ).replace(/=/g, ""),
+    const endpoint = new URL(options.url);
+    if (options.schemaVersion != null && options.schemaVersion !== "") {
+      endpoint.searchParams.set("schema_version", options.schemaVersion);
+    }
+
+    const protocolParts = [
+      options.authToken != null ? `auth=${options.authToken}` : null,
+      `room=${options.room}`,
+      options.schemaVersion != null && options.schemaVersion !== ""
+        ? `schema_version=${options.schemaVersion}`
+        : null,
+    ].filter((part): part is string => part != null);
+
+    const socket = new WebSocket(endpoint.toString(), [
+      btoa(protocolParts.join(",")).replace(/=/g, ""),
     ]);
     socket.binaryType = "arraybuffer";
 

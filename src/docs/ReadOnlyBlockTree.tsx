@@ -1,7 +1,8 @@
 import type { FlatOutlineNode } from "../domain/outliner/types";
-import { renderInactiveDoc } from "../features/editor/render/renderInactiveDoc";
+import { extractPlainText } from "../features/editor/serialization/extractPlainText";
 import { OutlinerGuides } from "../ui/OutlinerGuides";
 import { OutlinerRowLeading } from "../ui/OutlinerRowLeading";
+import { RichText } from "../ui/components/RichText";
 
 interface ReadOnlyBlockTreeProps {
   rootId: string;
@@ -23,17 +24,14 @@ function ReadOnlyOutlinerRow({ node }: { node: FlatOutlineNode }) {
         isFocused={false}
         isDragging={false}
         onToggleCollapse={() => {}}
-        onToggleTaskStatus={() => {}}
+        onToggleTaskCompletion={() => {}}
       />
-      <div
-        className={`min-w-0 flex-1 pt-px ${
-          node.task_status === "DONE"
-            ? "text-text-muted line-through decoration-text-muted"
-            : ""
-        }`}
-      >
-        <div className="m-0 min-h-[28px] w-full select-none whitespace-pre-wrap break-words bg-transparent px-0 py-0 text-[15px] leading-7 text-text-emphasis">
-          {renderInactiveDoc(node.content)}
+      <div className="min-w-0 flex-1 pt-px">
+        <div className="m-0 min-h-[28px] w-full select-none bg-transparent px-0 py-0 text-[15px] leading-7 text-text-emphasis">
+          <RichText
+            content={extractPlainText(node.content)}
+            isDone={node.task_status === "DONE"}
+          />
         </div>
       </div>
     </div>

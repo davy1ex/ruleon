@@ -30,7 +30,7 @@ function findNodeInTree(
 
 async function loadAllOutlineNodes(db: DBAsync): Promise<OutlineNodeDbRow[]> {
   const stmt = await db.prepare(
-    `SELECT id, parent_id, content, sort_order, collapsed, task_status, created_at, updated_at
+    `SELECT id, parent_id, content, sort_order, collapsed, task_status, metadata, created_at, updated_at
      FROM outline_nodes
      WHERE id NOT IN (SELECT node_id FROM trashed_nodes)`,
   );

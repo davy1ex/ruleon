@@ -5,10 +5,10 @@ import { usePageSearchPalette } from "./usePageSearchPalette";
 
 export function CommandPalette() {
   const commandPaletteOpen = useWorkspaceStore((s) => s.commandPaletteOpen);
-  const setCommandPaletteOpen = useWorkspaceStore((s) => s.setCommandPaletteOpen);
+  const toggleCommandPalette = useWorkspaceStore((s) => s.toggleCommandPalette);
 
   const palette = usePageSearchPalette({
-    onAfterSelect: () => setCommandPaletteOpen(false),
+    onAfterSelect: () => toggleCommandPalette(false),
   });
 
   useEffect(() => {
@@ -26,15 +26,20 @@ export function CommandPalette() {
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-start justify-center bg-black/40 px-4 pt-[12vh]"
+      className="fixed inset-0 z-[100] flex items-start justify-center bg-black/40 px-4 pt-[20vh] backdrop-blur-sm"
       role="presentation"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) {
-          setCommandPaletteOpen(false);
+          toggleCommandPalette(false);
         }
       }}
     >
-      <div className="w-full max-w-lg" role="dialog" aria-modal="true" aria-label="Command palette">
+      <div
+        className="w-full max-w-xl"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Command palette"
+      >
         <PageSearchPalette
           query={palette.query}
           highlightIndex={palette.highlightIndex}

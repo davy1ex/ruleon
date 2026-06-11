@@ -15,6 +15,7 @@ export function row(
     sort_order: sortOrder,
     collapsed,
     task_status: taskStatus,
+    metadata: {},
     created_at: sortOrder,
     updated_at: sortOrder,
   };

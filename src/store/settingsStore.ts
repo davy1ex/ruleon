@@ -1,13 +1,25 @@
 import { create } from "zustand";
+import { getDefaultSyncUrl } from "../config/sync";
+import { APP_CONFIG_KEY } from "../domain/settings/settingKeys";
+import { setSetting } from "../domain/settings/settingsRepo";
+import { getDbContext } from "./dbContext";
 
-export type ThemeId = "default" | "solarized-light" | "dracula" | "custom";
+export type ThemeId =
+  | "default"
+  | "solarized-light"
+  | "solarized-dark"
+  | "dracula"
+  | "custom";
 
 export const THEME_OPTIONS: { id: ThemeId; label: string }[] = [
   { id: "default", label: "Default Light" },
   { id: "solarized-light", label: "Solarized Light" },
+  { id: "solarized-dark", label: "Solarized Dark" },
   { id: "dracula", label: "Dracula" },
   { id: "custom", label: "Custom CSS" },
 ];
+
+const VALID_THEMES = new Set<string>(THEME_OPTIONS.map((option) => option.id));
 
 export interface AppSettings {
   theme: ThemeId;
@@ -16,23 +28,32 @@ export interface AppSettings {
   plugins: Record<string, { enabled: boolean }>;
 }
 
-const STORAGE_KEY = "ruleon-settings";
-
 export const DEFAULT_SETTINGS: AppSettings = {
-  theme: "solarized-light",
+  theme: "solarized-dark",
   customCss: "",
-  sync: { enabled: false, url: "ws://localhost:8080/sync", apiKey: "" },
+  sync: { enabled: false, url: getDefaultSyncUrl(), apiKey: "" },
   plugins: {
     sync: { enabled: false },
-    calendar: { enabled: false },
     pomodoro: { enabled: true },
   },
 };
 
 export const CORE_MODULES = [
   { id: "sync", label: "Sync", description: "WebSocket synchronization" },
-  { id: "calendar", label: "Calendar", description: "Calendar views and scheduling" },
   { id: "pomodoro", label: "Pomodoro", description: "Focus timer with journal logging" },
+] as const;
+
+export const WORKSPACE_PLUGINS = [
+  {
+    id: "calendar",
+    label: "Calendar",
+    description: "Obsidian-style daily note calendar in the right panel",
+  },
+  {
+    id: "gamification",
+    label: "Gamification",
+    description: "Earn XP and coins when completing tasks",
+  },
 ] as const;
 
 export function applyTheme(theme: ThemeId): void {
@@ -40,28 +61,27 @@ export function applyTheme(theme: ThemeId): void {
 }
 
 function mergeWithDefaults(parsed: Partial<AppSettings>): AppSettings {
+  const theme =
+    parsed.theme && VALID_THEMES.has(parsed.theme)
+      ? parsed.theme
+      : DEFAULT_SETTINGS.theme;
+
   return {
-    theme: parsed.theme ?? DEFAULT_SETTINGS.theme,
-    customCss: parsed.customCss ?? DEFAULT_SETTINGS.customCss,
+    theme,
+    customCss: parsed["customCss"] ?? DEFAULT_SETTINGS["customCss"],
     sync: { ...DEFAULT_SETTINGS.sync, ...parsed.sync },
     plugins: { ...DEFAULT_SETTINGS.plugins, ...parsed.plugins },
   };
 }
 
-export function loadSettings(): AppSettings {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      return DEFAULT_SETTINGS;
-    }
-    return mergeWithDefaults(JSON.parse(raw) as Partial<AppSettings>);
-  } catch {
-    return DEFAULT_SETTINGS;
-  }
-}
-
-export function saveSettings(settings: AppSettings): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+export function normalizeAppSettings(settings: AppSettings): AppSettings {
+  return {
+    ...settings,
+    plugins: {
+      ...settings.plugins,
+      sync: { enabled: settings.sync.enabled },
+    },
+  };
 }
 
 interface SettingsState {
@@ -75,7 +95,7 @@ interface SettingsState {
   setPluginEnabled: (id: string, enabled: boolean) => void;
   openPanel: () => void;
   closePanel: () => void;
-  saveAndRestart: () => void;
+  saveAndRestart: () => Promise<void>;
 }
 
 export const useSettingsStore = create<SettingsState>((set, get) => ({
@@ -83,15 +103,16 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   isPanelOpen: false,
 
   hydrate: () => {
-    const settings = loadSettings();
+    const settings = DEFAULT_SETTINGS;
     applyTheme(settings.theme);
     set({ settings });
     return settings;
   },
 
   setSettings: (settings) => {
-    applyTheme(settings.theme);
-    set({ settings });
+    const merged = mergeWithDefaults(settings);
+    applyTheme(merged.theme);
+    set({ settings: merged });
   },
 
   updateTheme: (theme) =>
@@ -136,16 +157,12 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   openPanel: () => set({ isPanelOpen: true }),
   closePanel: () => set({ isPanelOpen: false }),
 
-  saveAndRestart: () => {
-    const { settings } = get();
-    const normalized: AppSettings = {
-      ...settings,
-      plugins: {
-        ...settings.plugins,
-        sync: { enabled: settings.sync.enabled },
-      },
-    };
-    saveSettings(normalized);
+  saveAndRestart: async () => {
+    const normalized = normalizeAppSettings(get().settings);
+    const db = getDbContext()?.db;
+    if (db) {
+      await setSetting(db, APP_CONFIG_KEY, normalized);
+    }
     window.location.reload();
   },
 }));

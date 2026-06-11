@@ -1,4 +1,5 @@
-import type { MouseEvent } from "react";
+import { Check, X } from "lucide-react";
+import type { ChangeEvent, MouseEvent } from "react";
 import type { TaskStatus } from "../domain/outliner/types";
 
 interface TaskCheckboxProps {
@@ -13,35 +14,65 @@ export function TaskCheckbox({
   onClick,
 }: TaskCheckboxProps) {
   const checked = status === "DONE";
+  const failed = status === "FAILED";
+
+  const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
+    event.stopPropagation();
+    onClick(event as unknown as MouseEvent);
+  };
+
+  if (failed) {
+    return (
+      <div
+        data-task-checkbox
+        data-testid="task-checkbox"
+        data-failed
+        role="checkbox"
+        aria-checked="mixed"
+        aria-label="Mark failed task as to-do"
+        className="relative mt-0.5 flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-sm border border-red-400/70 bg-red-400/10"
+        onMouseDown={(event) => event.stopPropagation()}
+        onClick={(event) => {
+          event.stopPropagation();
+          if (!readOnly) {
+            onClick(event);
+          }
+        }}
+      >
+        <X
+          size={12}
+          strokeWidth={3}
+          className="text-red-400"
+          aria-hidden
+        />
+      </div>
+    );
+  }
 
   return (
-    <button
-      type="button"
+    <div
       data-task-checkbox
       data-testid="task-checkbox"
-      aria-checked={checked}
-      aria-label={checked ? "Mark task as to-do" : "Mark task as done"}
-      disabled={readOnly}
-      onClick={onClick}
+      className="relative mt-0.5 flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center"
       onMouseDown={(event) => event.stopPropagation()}
-      className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors ${
-        checked
-          ? "border-accent bg-accent text-surface-primary"
-          : "border-text-muted bg-transparent hover:border-accent"
-      } ${readOnly ? "cursor-default opacity-70" : "cursor-pointer"}`}
+      onClick={(event) => {
+        event.stopPropagation();
+      }}
     >
-      {checked ? (
-        <svg
-          viewBox="0 0 12 12"
-          className="h-2.5 w-2.5"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          aria-hidden
-        >
-          <path d="M2 6l3 3 5-5" />
-        </svg>
-      ) : null}
-    </button>
+      <input
+        type="checkbox"
+        checked={checked}
+        disabled={readOnly}
+        onChange={handleChange}
+        aria-label={checked ? "Mark task as to-do" : "Mark task as done"}
+        className="peer h-4 w-4 cursor-pointer appearance-none rounded-sm border border-text-muted transition-colors checked:border-accent checked:bg-accent hover:border-accent disabled:cursor-default disabled:opacity-70"
+      />
+      <Check
+        size={12}
+        strokeWidth={3}
+        className="pointer-events-none absolute text-white opacity-0 transition-opacity peer-checked:opacity-100"
+        aria-hidden
+      />
+    </div>
   );
 }

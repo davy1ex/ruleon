@@ -1,19 +1,36 @@
 import type { StoreApi } from "zustand";
 import {
-  applyLayoutCss,
-  clampRightSidebarWidth,
-  clampSidebarWidth,
   defaultLayout,
   findLeafByType,
   loadPersisted,
+  migrateLayout,
+  migratePlugins,
   persistWorkspace,
   schedulePersist,
   syncNavigationFromLeaf,
 } from "./workspaceHelpers";
-import type { EditorLeafState, SidebarWidget, WorkspaceStore } from "./workspaceTypes";
+import { defaultPlugins } from "./workspaceTypes";
+import type {
+  EditorLeafState,
+  RightWidgetType,
+  WorkspaceStore,
+} from "./workspaceTypes";
 
 type WorkspaceSet = StoreApi<WorkspaceStore>["setState"];
 type WorkspaceGet = StoreApi<WorkspaceStore>["getState"];
+
+function resolveRightWidget(
+  widget: RightWidgetType,
+  plugins: WorkspaceStore["plugins"],
+): RightWidgetType {
+  if (widget === "profile" && !plugins.gamification) {
+    return "outline";
+  }
+  if (widget === "calendar" && !plugins.calendar) {
+    return "outline";
+  }
+  return widget;
+}
 
 export function createOpenActions(get: WorkspaceGet) {
   return {
@@ -68,84 +85,40 @@ export function createOpenActions(get: WorkspaceGet) {
   };
 }
 
-export function createWidgetActions(get: WorkspaceGet, set: WorkspaceSet) {
-  return {
-    pinWidget: (type: SidebarWidget["type"]) => {
-      const widgets = get().sidebarWidgets;
-      if (widgets.some((w) => w.type === type)) {
-        return;
-      }
-      const widget: SidebarWidget = {
-        id: `widget-${type}`,
-        type,
-        pinned: true,
-        order: widgets.length,
-        collapsed: false,
-      };
-      set({
-        sidebarWidgets: [...widgets, widget],
-        layout: { ...get().layout, rightSidebarOpen: true },
-      });
-      schedulePersist(get);
-    },
-
-    unpinWidget: (id: string) => {
-      set({
-        sidebarWidgets: get().sidebarWidgets.filter((w) => w.id !== id),
-      });
-      schedulePersist(get);
-    },
-
-    toggleWidgetCollapsed: (id: string) => {
-      set({
-        sidebarWidgets: get().sidebarWidgets.map((w) =>
-          w.id === id ? { ...w, collapsed: !w.collapsed } : w,
-        ),
-      });
-      schedulePersist(get);
-    },
-
-    reorderWidgets: (fromIndex: number, toIndex: number) => {
-      const widgets = [...get().sidebarWidgets];
-      const [moved] = widgets.splice(fromIndex, 1);
-      widgets.splice(toIndex, 0, moved);
-      set({
-        sidebarWidgets: widgets.map((w, i) => ({ ...w, order: i })),
-      });
-      schedulePersist(get);
-    },
-  };
-}
-
 export function createLayoutActions(get: WorkspaceGet, set: WorkspaceSet) {
   return {
-    setLeftSidebarWidth: (width: number) => {
-      const layout = {
-        ...get().layout,
-        leftSidebarWidth: clampSidebarWidth(width),
-      };
-      set({ layout });
-      applyLayoutCss(layout);
+    toggleLeftSidebar: () => {
+      set({
+        layout: {
+          ...get().layout,
+          leftSidebarOpen: !get().layout.leftSidebarOpen,
+        },
+      });
       schedulePersist(get);
     },
 
-    setRightSidebarOpen: (open: boolean) => {
-      set({ layout: { ...get().layout, rightSidebarOpen: open } });
+    toggleRightPanel: () => {
+      const { rightWidget, lastRightWidget } = get().layout;
+      set({
+        layout: {
+          ...get().layout,
+          rightWidget: rightWidget
+            ? null
+            : resolveRightWidget(lastRightWidget, get().plugins),
+        },
+      });
       schedulePersist(get);
     },
 
-    setRightSidebarWidth: (width: number) => {
-      const layout = {
-        ...get().layout,
-        rightSidebarWidth: clampRightSidebarWidth(width),
-      };
-      set({ layout });
-      applyLayoutCss(layout);
+    setRightWidget: (widget: WorkspaceStore["layout"]["rightWidget"]) => {
+      set({
+        layout: {
+          ...get().layout,
+          rightWidget: widget,
+          ...(widget ? { lastRightWidget: widget } : {}),
+        },
+      });
       schedulePersist(get);
-    },
-
-    toggleRightSidebar: () => {
-      get().setRightSidebarOpen(!get().layout.rightSidebarOpen);
     },
   };
 }
@@ -155,18 +128,16 @@ export function createPersistenceActions(get: WorkspaceGet, set: WorkspaceSet) {
     hydrate: () => {
       const saved = loadPersisted();
       if (saved?.leaves && saved.leafOrder?.length) {
-        const layout = saved.layout ?? defaultLayout();
         set({
           leaves: saved.leaves,
           leafOrder: saved.leafOrder,
-          activeLeafId: saved.activeLeafId,
-          sidebarWidgets: saved.sidebarWidgets ?? [],
-          layout,
+          activeLeafId: saved.activeLeafId ?? null,
+          layout: migrateLayout(saved),
+          plugins: migratePlugins(saved),
         });
-        applyLayoutCss(layout);
         return;
       }
-      applyLayoutCss(defaultLayout());
+      set({ layout: defaultLayout(), plugins: defaultPlugins() });
     },
 
     syncActiveLeafNavigation: () => {

@@ -25,6 +25,7 @@ export function buildFlatOutline(
       sort_order: sortBase + index,
       collapsed: 0,
       task_status: item.taskStatus ?? null,
+      metadata: {},
       created_at: 0,
       updated_at: 0,
       depth,

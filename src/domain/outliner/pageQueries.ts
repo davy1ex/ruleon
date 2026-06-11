@@ -8,6 +8,9 @@ import type {
   PageListItem,
   TaskStatus,
 } from "./types";
+import { parseMetadata } from "./metadata";
+
+export const OUTLINE_NODE_COLUMNS = `id, parent_id, content, sort_order, collapsed, task_status, metadata, created_at, updated_at`;
 
 function parseTaskStatus(raw: string | null | undefined): TaskStatus | null {
   if (raw === "TODO" || raw === "DONE") {
@@ -35,6 +38,7 @@ export function normalizeRow(row: OutlineNodeDbRow): OutlineNodeRow {
     sort_order: Number(row.sort_order),
     collapsed: Number(row.collapsed) as 0 | 1,
     task_status: parseTaskStatus(row.task_status),
+    metadata: parseMetadata(row.metadata),
     created_at: Number(row.created_at),
     updated_at: Number(row.updated_at),
   };
@@ -50,7 +54,7 @@ export async function findPageRootByName(
   }
 
   const stmt = await db.prepare(
-    `SELECT id, parent_id, content, sort_order, collapsed, task_status, created_at, updated_at
+    `SELECT ${OUTLINE_NODE_COLUMNS}
      FROM outline_nodes
      WHERE parent_id IS NULL
        AND id NOT IN (SELECT node_id FROM trashed_nodes)

@@ -5,23 +5,24 @@ import { TaskCheckbox } from "./TaskCheckbox";
 
 interface PortalBlockRowProps {
   node: FlatOutlineNode;
-  onToggleTaskStatus: () => void;
+  onToggleTaskCompletion: () => void;
   onNavigateWikiLink: (pageName: string) => void;
 }
 
 export function PortalBlockRow({
   node,
-  onToggleTaskStatus,
+  onToggleTaskCompletion,
   onNavigateWikiLink,
 }: PortalBlockRowProps) {
   const taskStatus = node.task_status;
   const isDone = taskStatus === "DONE";
+  const isFailed = taskStatus === "FAILED";
   const showCheckbox = taskStatus != null;
 
   const handleCheckboxClick = (event: MouseEvent) => {
     event.preventDefault();
     event.stopPropagation();
-    onToggleTaskStatus();
+    onToggleTaskCompletion();
   };
 
   return (
@@ -38,7 +39,13 @@ export function PortalBlockRow({
         <span className="w-4 shrink-0" aria-hidden />
       )}
       <span
-        className={`min-w-0 flex-1 ${isDone ? "text-text-muted line-through" : ""}`}
+        className={`min-w-0 flex-1 ${
+          isFailed
+            ? "text-red-400 line-through opacity-70"
+            : isDone
+              ? "text-text-muted line-through"
+              : ""
+        }`}
       >
         {renderInactiveDoc(node.content, { onNavigateWikiLink })}
       </span>

@@ -1,9 +1,5 @@
 import type { RuleonDb as DB } from "../db/types";
-import {
-  mapPageListItems,
-  normalizeRow,
-  pageTitleFromStored,
-} from "./pageQueries";
+import { mapPageListItems, normalizeRow, pageTitleFromStored, OUTLINE_NODE_COLUMNS } from "./pageQueries";
 import type { OutlineNodeDbRow, OutlineNodeRow, PageListItem, TrashedPageItem } from "./types";
 
 export type { PortalFilter } from "./portalTypes";
@@ -17,7 +13,7 @@ export {
 
 export async function getAllNodes(db: DB): Promise<OutlineNodeRow[]> {
   const stmt = await db.prepare(
-    `SELECT id, parent_id, content, sort_order, collapsed, task_status, created_at, updated_at
+    `SELECT ${OUTLINE_NODE_COLUMNS}
      FROM outline_nodes
      ORDER BY sort_order ASC, created_at ASC`,
   );
@@ -31,7 +27,7 @@ export async function getNodeById(
   id: string,
 ): Promise<OutlineNodeRow | null> {
   const stmt = await db.prepare(
-    `SELECT id, parent_id, content, sort_order, collapsed, task_status, created_at, updated_at
+    `SELECT ${OUTLINE_NODE_COLUMNS}
      FROM outline_nodes
      WHERE id = ?`,
   );
@@ -47,13 +43,13 @@ export async function getSiblings(
   const stmt =
     parentId === null
       ? await db.prepare(
-          `SELECT id, parent_id, content, sort_order, collapsed, task_status, created_at, updated_at
+          `SELECT ${OUTLINE_NODE_COLUMNS}
            FROM outline_nodes
            WHERE parent_id IS NULL
            ORDER BY sort_order ASC, created_at ASC`,
         )
       : await db.prepare(
-          `SELECT id, parent_id, content, sort_order, collapsed, task_status, created_at, updated_at
+          `SELECT ${OUTLINE_NODE_COLUMNS}
            FROM outline_nodes
            WHERE parent_id = ?
            ORDER BY sort_order ASC, created_at ASC`,
@@ -82,7 +78,7 @@ export async function getBlocksLinkingTo(
   const normalized = targetText.trim().toLowerCase();
   const stmt = await db.prepare(
     `SELECT n.id, n.parent_id, n.content, n.sort_order, n.collapsed,
-            n.task_status, n.created_at, n.updated_at
+            n.task_status, n.metadata, n.created_at, n.updated_at
      FROM outline_nodes n
      JOIN block_links bl ON n.id = bl.source_block_id
      WHERE bl.target_text = ?

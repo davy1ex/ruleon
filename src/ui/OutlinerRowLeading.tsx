@@ -4,6 +4,7 @@ import type {
 } from "@dnd-kit/core";
 import type { MouseEvent } from "react";
 import type { FlatOutlineNode } from "../domain/outliner/types";
+import { getBlockType } from "../domain/outliner/types";
 import { TaskCheckbox } from "./TaskCheckbox";
 
 interface OutlinerRowLeadingProps {
@@ -14,7 +15,7 @@ interface OutlinerRowLeadingProps {
   dragAttributes?: DraggableAttributes;
   dragListeners?: DraggableSyntheticListeners;
   onToggleCollapse: (id: string) => void;
-  onToggleTaskStatus: (id: string) => void;
+  onToggleTaskCompletion: (id: string) => void;
 }
 
 export function OutlinerRowLeading({
@@ -25,8 +26,10 @@ export function OutlinerRowLeading({
   dragAttributes,
   dragListeners,
   onToggleCollapse,
-  onToggleTaskStatus,
+  onToggleTaskCompletion,
 }: OutlinerRowLeadingProps) {
+  const isTodo = getBlockType(node.task_status) === "todo";
+
   const bullet = (
     <span
       className={`block h-2.5 w-2.5 shrink-0 rounded-full bg-bullet transition-colors group-hover:bg-bullet-hover ${
@@ -49,15 +52,19 @@ export function OutlinerRowLeading({
   const handleCheckboxClick = (event: MouseEvent) => {
     event.stopPropagation();
     event.preventDefault();
-    onToggleTaskStatus(node.id);
+    onToggleTaskCompletion(node.id);
   };
-
-  const showCheckbox = node.task_status !== null;
 
   return (
     <>
       <div className="relative z-10 flex h-7 w-7 shrink-0 items-center justify-center">
-        {readOnly ? (
+        {isTodo ? (
+          <TaskCheckbox
+            status={node.task_status ?? "TODO"}
+            readOnly={readOnly}
+            onClick={handleCheckboxClick}
+          />
+        ) : readOnly ? (
           bullet
         ) : (
           <span
@@ -80,15 +87,6 @@ export function OutlinerRowLeading({
           </span>
         )}
       </div>
-      {showCheckbox && node.task_status !== null ? (
-        <div className="flex h-7 w-5 shrink-0 items-center justify-center">
-          <TaskCheckbox
-            status={node.task_status}
-            readOnly={readOnly}
-            onClick={handleCheckboxClick}
-          />
-        </div>
-      ) : null}
     </>
   );
 }

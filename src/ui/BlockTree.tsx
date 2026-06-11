@@ -31,7 +31,7 @@ export interface BlockTreeHandlers {
   onClearSelection: () => void;
   onAddSibling: (id: string) => void;
   onToggleCollapse: (id: string) => void;
-  onToggleTaskStatus: (id: string) => void;
+  onToggleTaskCompletion: (id: string) => void;
 }
 
 interface BlockTreeProps extends BlockTreeHandlers {
@@ -62,22 +62,59 @@ function BlockTreeRows({
       className="outline-none"
     >
       {nodes.map((node) => (
-        <OutlinerRow
-          key={node.id}
-          node={node}
-          readOnly={readOnly}
-          isFocused={node.id === focusedId}
-          isSelected={selectedIds.includes(node.id)}
-          projectedDepth={
-            dragProjection?.activeId === node.id
-              ? dragProjection.depth
-              : undefined
-          }
-          {...handlers}
-          onBlockPointerDown={handleBlockPointerDown}
-          onBlockPointerEnter={handleBlockPointerEnter}
-        />
+        <div key={node.id}>
+          <OutlinerRow
+            node={node}
+            readOnly={readOnly}
+            isFocused={node.id === focusedId}
+            isSelected={selectedIds.includes(node.id)}
+            projectedDepth={
+              dragProjection?.activeId === node.id
+                ? dragProjection.depth
+                : undefined
+            }
+            {...handlers}
+            onBlockPointerDown={handleBlockPointerDown}
+            onBlockPointerEnter={handleBlockPointerEnter}
+          />
+          {!readOnly ? (
+            <div
+              className="h-2 cursor-text"
+              data-testid="block-after-gap"
+              onMouseDown={(event) => {
+                if (event.button !== 0) {
+                  return;
+                }
+                event.preventDefault();
+                event.stopPropagation();
+                handlers.onClearSelection();
+                handlers.onFocus(node.id);
+                void handlers.onAddSibling(node.id);
+              }}
+            />
+          ) : null}
+        </div>
       ))}
+      {!readOnly && nodes.length > 0 ? (
+        <div
+          className="min-h-16 cursor-text"
+          data-testid="block-tree-tail"
+          onMouseDown={(event) => {
+            if (event.button !== 0) {
+              return;
+            }
+            event.preventDefault();
+            event.stopPropagation();
+            const lastNode = nodes[nodes.length - 1];
+            if (!lastNode) {
+              return;
+            }
+            handlers.onClearSelection();
+            handlers.onFocus(lastNode.id);
+            void handlers.onAddSibling(lastNode.id);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

@@ -106,7 +106,11 @@ Sync-server **requires** `API_KEY` in `sync-server/.env` (see `.env.example`). W
 - HTTP routes → **401** (`express` middleware: `Authorization: Bearer …` or `X-API-Key`).
 - WebSocket upgrade → **401** (`attachWebsocketServer` authenticate callback; token in `sec-websocket-protocol` as `auth=…`).
 
-Client: Settings → Sync → **API key** must match server `API_KEY`. Transport sends `authToken` via `@vlcn.io/ws-client` / `statusTransport.ts`.
+**Schema version guard:** clients must send `schema_version` (cryb64 hash of `schema.sql`) on WebSocket handshake — query param, `X-Schema-Version` header, or `sec-websocket-protocol`. Mismatch rejects the upgrade before any CR-SQLite changesets are exchanged.
+
+**Inbox quick-add:** `POST /api/inbox` with `{"text":"…"}` creates a child block on the server-side **Inbox** page; CR-SQLite propagates it to Electron/Android on next sync.
+
+Client: Settings → Sync → **API key** must match server `API_KEY`. Transport sends `authToken` and `schema_version` via `statusTransport.ts`.
 
 ```bash
 cp sync-server/.env.example sync-server/.env

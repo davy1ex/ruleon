@@ -1,0 +1,151 @@
+name: Dev Release
+
+on:
+  push:
+    branches: [dev]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: dev-release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run test:logic
+
+  build-android:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: android-actions/setup-android@v3
+
+      - run: npm ci
+
+      - run: npm run cap:apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+  build-linux:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install AppImage dependencies
+        run: sudo apt-get update && sudo apt-get install -y libfuse2
+
+      - run: npm ci
+
+      - run: npm run build:electron:ci
+
+      - name: Upload AppImage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-appimage
+          path: release/*.AppImage
+          if-no-files-found: error
+
+  build-mac:
+    runs-on: macos-latest
+    needs: test
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run build:electron:ci
+
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mac-desktop
+          path: |
+            release/*.dmg
+            release/*.zip
+          if-no-files-found: error
+
+  publish:
+    runs-on: ubuntu-latest
+    needs: [build-android, build-linux, build-mac]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist-artifacts
+          merge-multiple: true
+
+      - name: Prepare release assets
+        run: |
+          mkdir -p release-assets
+          shopt -s nullglob
+          appimage=(dist-artifacts/*.AppImage)
+          if [ ${#appimage[@]} -gt 0 ]; then
+            cp "${appimage[0]}" "release-assets/ruleon-dev-linux-${GITHUB_RUN_NUMBER}.AppImage"
+          fi
+          dmg=(dist-artifacts/*.dmg)
+          if [ ${#dmg[@]} -gt 0 ]; then
+            cp "${dmg[0]}" "release-assets/ruleon-dev-mac-${GITHUB_RUN_NUMBER}.dmg"
+          fi
+          zip=(dist-artifacts/*-mac.zip dist-artifacts/*.zip)
+          if [ ${#zip[@]} -gt 0 ]; then
+            cp "${zip[0]}" "release-assets/ruleon-dev-mac-${GITHUB_RUN_NUMBER}.zip"
+          fi
+          if [ -f dist-artifacts/app-debug.apk ]; then
+            cp dist-artifacts/app-debug.apk "release-assets/ruleon-dev-${GITHUB_RUN_NUMBER}.apk"
+          fi
+          ls -la release-assets/
+
+      - name: Publish dev pre-release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: dev-${{ github.run_number }}
+          name: Ruleon Dev ${{ github.run_number }}
+          prerelease: true
+          generate_release_notes: true
+          files: release-assets/*
+          make_latest: false

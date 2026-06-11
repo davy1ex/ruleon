@@ -14,4 +14,13 @@ contextBridge.exposeInMainWorld("electronAPI", {
       ipcRenderer.removeListener("workspace:close-tab", listener);
     };
   },
+  onGlobalQuickAdd: (handler: () => void) => {
+    const listener = () => {
+      handler();
+    };
+    ipcRenderer.on("trigger-global-quick-add", listener);
+    return () => {
+      ipcRenderer.removeListener("trigger-global-quick-add", listener);
+    };
+  },
 });

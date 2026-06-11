@@ -44,44 +44,49 @@ export interface WorkspaceLeaf {
   pinned?: boolean;
 }
 
-export type SidebarWidgetType =
-  | "backlinks"
-  | "outline"
-  | "sync-status"
-  | "pomodoro";
+export type RightWidgetType = "calendar" | "pomodoro" | "outline" | "profile";
 
-export interface SidebarWidget {
-  id: string;
-  type: SidebarWidgetType;
-  pinned: boolean;
-  order: number;
-  collapsed: boolean;
+export interface WorkspacePlugins {
+  gamification: boolean;
+  calendar: boolean;
+}
+
+export function defaultPlugins(): WorkspacePlugins {
+  return { gamification: false, calendar: false };
 }
 
 export interface WorkspaceLayout {
-  leftSidebarWidth: number;
-  rightSidebarOpen: boolean;
-  rightSidebarWidth: number;
+  leftSidebarOpen: boolean;
+  rightWidget: RightWidgetType | null;
+  lastRightWidget: RightWidgetType;
 }
 
 export interface PersistedWorkspace {
   leaves: Record<string, WorkspaceLeaf>;
   leafOrder: string[];
   activeLeafId: string | null;
-  sidebarWidgets: SidebarWidget[];
   layout: WorkspaceLayout;
+  plugins?: WorkspacePlugins;
 }
 
 export interface WorkspaceStore extends PersistedWorkspace {
+  plugins: WorkspacePlugins;
+  togglePlugin: (pluginId: keyof WorkspacePlugins) => void;
   commandPaletteOpen: boolean;
+  toggleCommandPalette: (force?: boolean) => void;
   setCommandPaletteOpen: (open: boolean) => void;
   openCommandPalette: () => void;
+  globalQuickAddOpen: boolean;
+  toggleGlobalQuickAdd: (force?: boolean) => void;
   addLeaf: (
     type: WorkspaceLeafType,
     state?: Partial<WorkspaceLeafState>,
     opts?: { activate?: boolean; title?: string },
   ) => string;
   closeLeaf: (id: string) => void;
+  closeOtherLeaves: (id: string) => void;
+  closeLeavesToLeft: (id: string) => void;
+  closeLeavesToRight: (id: string) => void;
   activateLeaf: (id: string) => void;
   updateLeafState: (
     id: string,
@@ -95,14 +100,9 @@ export interface WorkspaceStore extends PersistedWorkspace {
   openTrash: () => void;
   openSearchTab: (query?: string) => void;
   openSettings: (section?: SettingsLeafState["section"]) => void;
-  pinWidget: (type: SidebarWidgetType) => void;
-  unpinWidget: (id: string) => void;
-  toggleWidgetCollapsed: (id: string) => void;
-  reorderWidgets: (fromIndex: number, toIndex: number) => void;
-  setLeftSidebarWidth: (width: number) => void;
-  setRightSidebarOpen: (open: boolean) => void;
-  setRightSidebarWidth: (width: number) => void;
-  toggleRightSidebar: () => void;
+  toggleLeftSidebar: () => void;
+  toggleRightPanel: () => void;
+  setRightWidget: (widget: RightWidgetType | null) => void;
   hydrate: () => void;
   syncActiveLeafNavigation: () => void;
   persist: () => void;

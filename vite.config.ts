@@ -1,13 +1,19 @@
 /// <reference types="vitest/config" />
+import path from "path";
+import { fileURLToPath } from "url";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import electron from "vite-plugin-electron/simple";
 
+const projectRoot = path.dirname(fileURLToPath(import.meta.url));
+
 export default defineConfig(({ mode }) => {
   const isElectron = mode === "electron";
+  const isCapacitor = mode === "capacitor";
 
   return {
-    base: isElectron ? "./" : "/",
+    root: projectRoot,
+    base: isElectron || isCapacitor ? "./" : "/",
     plugins: [
       react(),
       isElectron &&

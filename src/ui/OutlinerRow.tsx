@@ -4,8 +4,9 @@ import type {
 } from "@dnd-kit/core";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { memo, type CSSProperties, type MouseEvent } from "react";
+import { memo, useEffect, useState, type CSSProperties, type MouseEvent } from "react";
 import type { FlatOutlineNode } from "../domain/outliner/types";
+import { useOutlinerStore } from "../store/outlinerStore";
 import { isWikiLinkTarget } from "../features/outliner/findWikiLink";
 import { BlockRowEditor } from "./BlockRowEditor";
 import { OutlinerGuides } from "./OutlinerGuides";
@@ -23,7 +24,7 @@ interface OutlinerRowProps {
   onClearSelection: () => void;
   onAddSibling: (id: string) => void;
   onToggleCollapse: (id: string) => void;
-  onToggleTaskStatus: (id: string) => void;
+  onToggleTaskCompletion: (id: string) => void;
   onBlockPointerDown?: (
     nodeId: string,
     event: MouseEvent,
@@ -104,7 +105,7 @@ function OutlinerRowShell({
   onToggleSelect,
   onClearSelection,
   onToggleCollapse,
-  onToggleTaskStatus,
+  onToggleTaskCompletion,
   onBlockPointerDown,
   onBlockPointerEnter,
   setNodeRef,
@@ -119,6 +120,34 @@ function OutlinerRowShell({
   dragAttributes?: DraggableAttributes;
   dragListeners?: DraggableSyntheticListeners;
 }) {
+  const openMoveTarget = useOutlinerStore((state) => state.openMoveTarget);
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!contextMenu) {
+      return;
+    }
+    const closeMenu = () => setContextMenu(null);
+    window.addEventListener("mousedown", closeMenu);
+    window.addEventListener("scroll", closeMenu, true);
+    return () => {
+      window.removeEventListener("mousedown", closeMenu);
+      window.removeEventListener("scroll", closeMenu, true);
+    };
+  }, [contextMenu]);
+
+  const handleContextMenu = (event: MouseEvent) => {
+    if (readOnly) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    setContextMenu({ x: event.clientX, y: event.clientY });
+  };
+
   const handleSelectPointer = (event: MouseEvent) => {
     if (isWikiLinkTarget(event.target)) {
       return;
@@ -147,6 +176,7 @@ function OutlinerRowShell({
       : node.depth;
 
   return (
+    <>
     <div
       ref={setNodeRef}
       data-testid="outliner-row"
@@ -158,6 +188,7 @@ function OutlinerRowShell({
         isSelected ? "rounded-md bg-interactive-selected" : ""
       } ${isDragging ? "z-10 opacity-90 shadow-sm" : ""}`}
       onMouseDown={handleSelectPointer}
+      onContextMenu={handleContextMenu}
       onMouseEnter={(event) => onBlockPointerEnter?.(node.id, event)}
     >
       <OutlinerGuides depth={displayDepth} />
@@ -169,21 +200,17 @@ function OutlinerRowShell({
         dragAttributes={dragAttributes}
         dragListeners={dragListeners}
         onToggleCollapse={onToggleCollapse}
-        onToggleTaskStatus={onToggleTaskStatus}
+        onToggleTaskCompletion={onToggleTaskCompletion}
       />
-      <div
-        className={`min-w-0 flex-1 pt-px ${
-          node.task_status === "DONE"
-            ? "text-text-muted line-through decoration-text-muted"
-            : ""
-        }`}
-      >
+      <div className="min-w-0 flex-1">
         <BlockRowEditor
           nodeId={node.id}
+          parentId={node.parent_id}
           nodeContent={node.content}
           hasChildren={node.hasChildren}
           readOnly={readOnly}
           isFocused={isFocused}
+          taskStatus={node.task_status}
           onFocus={onFocus}
           onToggleSelect={onToggleSelect}
           onClearSelection={onClearSelection}
@@ -191,5 +218,27 @@ function OutlinerRowShell({
         />
       </div>
     </div>
+    {contextMenu ? (
+      <div
+        className="fixed z-[120] min-w-[180px] overflow-hidden rounded-lg border border-border bg-surface-modal py-1 shadow-xl"
+        style={{ left: contextMenu.x, top: contextMenu.y }}
+        role="menu"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <button
+          type="button"
+          role="menuitem"
+          className="w-full px-3 py-2 text-left text-sm text-text-normal hover:bg-interactive-hover"
+          onClick={() => {
+            setContextMenu(null);
+            openMoveTarget(node.id);
+          }}
+        >
+          Move to…
+          <span className="ml-2 text-xs text-text-muted">⌘⇧M</span>
+        </button>
+      </div>
+    ) : null}
+    </>
   );
 }

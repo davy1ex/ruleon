@@ -22,6 +22,7 @@ function flatNode(
     sort_order: sortOrder,
     collapsed: 0,
     task_status: null,
+    metadata: {},
     created_at: sortOrder,
     updated_at: sortOrder,
     depth,

@@ -17,6 +17,7 @@ const REQUIRED_TABLES = {
     "sort_order",
     "collapsed",
     "task_status",
+    "metadata",
     "created_at",
     "updated_at",
   ],
@@ -30,9 +31,7 @@ const REQUIRED_TABLES = {
 const REQUIRED_CRR_TABLES = ["outline_nodes", "block_links", "kv_state"];
 
 export function migrateServerDatabases(dbFolder, schemaFolder) {
-  const schemaPath = path.join(schemaFolder, SCHEMA_NAME);
-  const schemaSql = fs.readFileSync(schemaPath, "utf-8");
-  const targetVersion = cryb64(schemaSql).toString();
+  const { schemaSql, targetVersion } = loadSchemaArtifacts(schemaFolder);
 
   if (!fs.existsSync(dbFolder)) {
     return;
@@ -46,6 +45,21 @@ export function migrateServerDatabases(dbFolder, schemaFolder) {
     const dbPath = path.join(dbFolder, entry);
     migrateDatabaseFile(dbPath, schemaSql, targetVersion);
   }
+}
+
+export function ensureRoomDatabase(dbFolder, schemaFolder, roomName) {
+  const { schemaSql, targetVersion } = loadSchemaArtifacts(schemaFolder);
+  fs.mkdirSync(dbFolder, { recursive: true });
+  const dbPath = path.join(dbFolder, roomName);
+  migrateDatabaseFile(dbPath, schemaSql, targetVersion);
+  return dbPath;
+}
+
+function loadSchemaArtifacts(schemaFolder) {
+  const schemaPath = path.join(schemaFolder, SCHEMA_NAME);
+  const schemaSql = fs.readFileSync(schemaPath, "utf-8");
+  const targetVersion = cryb64(schemaSql).toString();
+  return { schemaSql, targetVersion };
 }
 
 function migrateDatabaseFile(dbPath, schemaSql, targetVersion) {

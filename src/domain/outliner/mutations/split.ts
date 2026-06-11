@@ -3,6 +3,10 @@ import type { BlockContentJSON } from "../contentTypes";
 import { serializeForDb } from "../../../features/editor/serialization/serializeForDb";
 import { getNodeById } from "../queries";
 import { createNodeId, currentTimestamp } from "../seed";
+import {
+  initialNodeMetadata,
+  serializeMetadata,
+} from "../metadata";
 import { sanitizeSortOrder } from "../sortOrder";
 import { syncBlockLinks, syncNodeTags } from "./blockLinks";
 import { updateContent } from "./update";
@@ -55,15 +59,16 @@ export async function splitNode(
   );
   const timestamp = currentTimestamp();
   const rightStored = serializeForDb(rightPart);
+  const metadata = serializeMetadata(initialNodeMetadata(new Date(timestamp).toISOString()));
 
   await db.exec("BEGIN");
   try {
     await updateContent(db, id, leftPart, { inTransaction: true });
     await db.exec(
       `INSERT INTO outline_nodes
-        (id, parent_id, content, sort_order, collapsed, created_at, updated_at)
-       VALUES (?, ?, ?, ?, 0, ?, ?)`,
-      [newId, node.parent_id, rightStored, newSortOrder, timestamp, timestamp],
+        (id, parent_id, content, sort_order, collapsed, metadata, created_at, updated_at)
+       VALUES (?, ?, ?, ?, 0, ?, ?, ?)`,
+      [newId, node.parent_id, rightStored, newSortOrder, metadata, timestamp, timestamp],
     );
     await syncBlockLinks(db, newId, rightPart);
     await syncNodeTags(db, newId, rightPart);

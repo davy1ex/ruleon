@@ -70,6 +70,11 @@ export async function focusEmptyBlock(page: Page): Promise<Locator> {
 export async function pressAtBlockStart(editor: Locator): Promise<void> {
   await editor.focus();
   await editor.evaluate((element) => {
+    if (element instanceof HTMLTextAreaElement) {
+      element.focus();
+      element.setSelectionRange(0, 0);
+      return;
+    }
     element.focus();
     const range = document.createRange();
     range.selectNodeContents(element);

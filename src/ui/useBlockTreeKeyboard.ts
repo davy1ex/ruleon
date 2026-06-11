@@ -54,6 +54,12 @@ export function useBlockTreeKeyboard(
       }
 
       if (event.key === "Escape") {
+        if (state.moveTargetNodeId != null) {
+          event.preventDefault();
+          event.stopPropagation();
+          state.closeMoveTarget();
+          return;
+        }
         if (state.selectedIds.length === 0) {
           return;
         }
@@ -63,27 +69,53 @@ export function useBlockTreeKeyboard(
         return;
       }
 
-      const isEditingInTextarea =
-        (document.activeElement instanceof HTMLTextAreaElement ||
-          document.activeElement?.classList.contains("ProseMirror") ||
-          document.activeElement?.closest(".ProseMirror") instanceof
-            HTMLElement) &&
-        state.selectedIds.length === 0;
-
-      if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
-        if (isEditingInTextarea) {
+      if (
+        (event.metaKey || event.ctrlKey) &&
+        event.shiftKey &&
+        event.code === "KeyM"
+      ) {
+        const targetId =
+          state.focusedId && nodeIdSet.has(state.focusedId)
+            ? state.focusedId
+            : state.selectedIds.find((id) => nodeIdSet.has(id));
+        if (!targetId) {
           return;
         }
-
-        const targets = resolveToggleTargets(state, nodeIdSet);
-        if (targets.length === 0) {
-          return;
-        }
-
         event.preventDefault();
         event.stopPropagation();
-        void state.toggleTaskStatus(targets);
+        blurActiveElement();
+        state.openMoveTarget(targetId);
         return;
+      }
+
+      const isEditingInTextarea =
+        document.activeElement instanceof HTMLTextAreaElement &&
+        state.selectedIds.length === 0;
+
+      if (event.key === "Enter" && !event.shiftKey) {
+        if (isEditingInTextarea) {
+          if (event.ctrlKey || event.metaKey) {
+            return;
+          }
+        } else if (state.focusedId && nodeIdSet.has(state.focusedId)) {
+          event.preventDefault();
+          event.stopPropagation();
+          if (event.ctrlKey || event.metaKey) {
+            void state.cycleTaskStatus(resolveToggleTargets(state, nodeIdSet));
+          } else {
+            void state.addSibling(state.focusedId);
+          }
+          return;
+        } else if (event.ctrlKey || event.metaKey) {
+          const targets = resolveToggleTargets(state, nodeIdSet);
+          if (targets.length === 0) {
+            return;
+          }
+          event.preventDefault();
+          event.stopPropagation();
+          void state.cycleTaskStatus(targets);
+          return;
+        }
       }
 
       if (

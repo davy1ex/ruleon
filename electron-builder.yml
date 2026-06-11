@@ -17,3 +17,10 @@ linux:
     - AppImage
   category: Office
   icon: build/icons
+
+mac:
+  target:
+    - dmg
+    - zip
+  category: public.app-category.productivity
+  icon: build/icons/512x512.png

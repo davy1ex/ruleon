@@ -1,11 +1,20 @@
 import { create } from "zustand";
 import { initDatabase, type SyncStatus } from "../domain/db";
 import { seedIfEmpty } from "../domain/outliner/seed";
+import { createNode } from "../domain/outliner/mutations/create";
+import {
+  dedupeInboxPages,
+  ensureInboxPage,
+  INBOX_PAGE_ID,
+  INBOX_PAGE_TITLE,
+} from "../domain/outliner/inboxPage";
+import { plainTextToBlockContent } from "../features/editor/serialization/parseStoredContent";
 import { dedupeWelcomePages } from "../domain/outliner/welcomePage";
 import { initModules } from "../modules";
 import type { AppSettings } from "./settingsStore";
 import type {
   FlatOutlineNode,
+  NodeMetadataPatch,
   OutlineNodeRow,
   PageListItem,
   TrashedPageItem,
@@ -15,6 +24,7 @@ import type { DragProjection } from "../features/outliner/dragProjection";
 import { extractPlainText } from "../features/editor/serialization/extractPlainText";
 import {
   debouncedUpdateContent,
+  flushAllPendingContentUpdates,
   flushUpdateContent,
   type CursorRestore,
   runAddSibling,
@@ -24,14 +34,16 @@ import {
   runOutdent,
   runMergeBlockWithPrevious,
   runMoveBlock,
+  runMoveNodeToPage,
   runPruneEmptyBlock,
   runSplitBlock,
   runToggleCollapse,
   runUpdateContent,
 } from "./blockActions";
+import { shouldAcceptBlockFocus } from "./focusHandoff";
 import type { PortalFilter } from "../domain/outliner/portalTypes";
 import { runLoadPortalResults } from "./portalActions";
-import { runToggleTaskStatus } from "./todoActions";
+import { runCycleTaskStatus, runToggleTaskCompletion, runUpdateNodeMetadata } from "./todoActions";
 import {
   getDbContext,
   setDbContext,
@@ -103,9 +115,12 @@ interface OutlinerState {
   dragProjection: DragProjection | null;
   portalResultsCache: Record<string, FlatOutlineNode[] | undefined>;
   refreshGeneration: number;
+  inboxItemCount: number;
+  moveTargetNodeId: string | null;
   bootstrap: (settings: AppSettings) => Promise<void>;
   setSyncStatus: (status: SyncStatus) => void;
   refresh: () => Promise<void>;
+  flushPendingContent: () => Promise<void>;
   navigateToRoot: (rootId: string) => Promise<void>;
   navigateToPage: (pageName: string) => Promise<void>;
   navigateToToday: () => Promise<void>;
@@ -130,7 +145,11 @@ interface OutlinerState {
   clearSelection: () => void;
   updateContent: (id: string, content: BlockContentJSON) => void;
   debouncedUpdateContent: (id: string, content: BlockContentJSON) => void;
-  flushUpdateContent: (id: string, content: BlockContentJSON) => Promise<void>;
+  flushUpdateContent: (
+    id: string,
+    content: BlockContentJSON,
+    options?: { syncStore?: boolean },
+  ) => Promise<void>;
   addSibling: (afterId: string, initialContent?: BlockContentJSON) => Promise<void>;
   splitBlock: (
     id: string,
@@ -147,6 +166,15 @@ interface OutlinerState {
   deleteSelectedNodes: () => Promise<void>;
   pruneEmptyBlock: (id: string, content: BlockContentJSON) => Promise<void>;
   toggleCollapse: (id: string) => Promise<void>;
+  cycleTaskStatus: (ids: string | string[]) => Promise<void>;
+  /** @deprecated Use cycleTaskStatus. */
+  toggleBlockTodoType: (ids: string | string[]) => Promise<void>;
+  toggleTaskCompletion: (ids: string | string[]) => Promise<void>;
+  updateNodeMetadata: (
+    ids: string | string[],
+    patch: NodeMetadataPatch,
+  ) => Promise<void>;
+  /** @deprecated Use toggleBlockTodoType or toggleTaskCompletion. */
   toggleTaskStatus: (ids: string | string[]) => Promise<void>;
   moveBlock: (
     id: string,
@@ -154,6 +182,11 @@ interface OutlinerState {
     prevSiblingOrder: number | null,
     nextSiblingOrder: number | null,
   ) => Promise<void>;
+  moveNodeToPage: (nodeId: string, targetPageRootId: string) => Promise<void>;
+  openMoveTarget: (nodeId: string) => void;
+  closeMoveTarget: () => void;
+  navigateToInbox: () => Promise<void>;
+  quickAddToInbox: (text: string) => Promise<void>;
   setDragProjection: (projection: DragProjection | null) => void;
   clearDragState: () => void;
   loadPortalResults: (target: string, filter: PortalFilter) => Promise<FlatOutlineNode[]>;
@@ -182,8 +215,10 @@ export const useOutlinerStore = create<OutlinerState>((set, get) => ({
   dragProjection: null,
   portalResultsCache: {},
   refreshGeneration: 0,
+  inboxItemCount: 0,
+  moveTargetNodeId: null,
 
-  bootstrap: async (settings) => {
+  bootstrap: async (_settings) => {
     if (getDbContext()) {
       return;
     }
@@ -196,7 +231,15 @@ export const useOutlinerStore = create<OutlinerState>((set, get) => ({
         const context = await initDatabase();
         setDbContext(context);
 
-        if (!settings.sync.enabled) {
+        const { loadSettingsFromDB } = await import("./loadSettingsFromDB");
+        await loadSettingsFromDB();
+        const { useSettingsStore } = await import("./settingsStore");
+        const loadedSettings = useSettingsStore.getState().settings;
+
+        await ensureInboxPage(context.db);
+        await dedupeInboxPages(context.db);
+
+        if (!loadedSettings.sync.enabled) {
           await seedIfEmpty(context.db);
           await dedupeWelcomePages(context.db);
         }
@@ -213,7 +256,7 @@ export const useOutlinerStore = create<OutlinerState>((set, get) => ({
             }, 100);
           }),
         );
-        await initModules(settings, context);
+        await initModules(loadedSettings, context);
         await get().navigateToDailyFeed();
       } catch (error) {
         bootstrapPromise = null;
@@ -234,12 +277,27 @@ export const useOutlinerStore = create<OutlinerState>((set, get) => ({
     if (!context) {
       return;
     }
+    await flushAllPendingContentUpdates(get, set);
     await runFeedRefresh(context.db, get, set);
+  },
+
+  flushPendingContent: async () => {
+    await flushAllPendingContentUpdates(get, set);
   },
 
   navigateToRoot: async (rootId) => {
     const context = getDbContext();
     if (!context) {
+      return;
+    }
+
+    await flushAllPendingContentUpdates(get, set);
+
+    if (
+      !isSystemTrashRootId(rootId) &&
+      get().currentRootId === rootId &&
+      get().nodesByRootId[rootId] !== undefined
+    ) {
       return;
     }
 
@@ -272,6 +330,8 @@ export const useOutlinerStore = create<OutlinerState>((set, get) => ({
     if (!context) {
       return;
     }
+
+    await flushAllPendingContentUpdates(get, set);
 
     const todayPage = await getOrCreatePage(
       context.db,
@@ -341,6 +401,7 @@ export const useOutlinerStore = create<OutlinerState>((set, get) => ({
       return;
     }
 
+    await flushAllPendingContentUpdates(get, set);
     const rootId = await runNavigateToPage(context.db, pageName, set);
     if (rootId) {
       await get().refresh();
@@ -406,18 +467,38 @@ export const useOutlinerStore = create<OutlinerState>((set, get) => ({
     await get().refresh();
   },
 
-  setFocus: (id) =>
+  setFocus: (id) => {
+    if (!shouldAcceptBlockFocus(id)) {
+      return;
+    }
     set({
       focusedId: id,
       selectionAnchorId: id,
-    }),
+    });
+  },
 
-  focusBlock: (id) =>
+  focusBlock: (id) => {
+    if (!shouldAcceptBlockFocus(id)) {
+      return;
+    }
     set({
       focusedId: id,
       selectedIds: [],
       selectionAnchorId: id,
-    }),
+    });
+    requestAnimationFrame(() => {
+      if (!shouldAcceptBlockFocus(id)) {
+        return;
+      }
+      if (get().focusedId !== id) {
+        set({
+          focusedId: id,
+          selectedIds: [],
+          selectionAnchorId: id,
+        });
+      }
+    });
+  },
 
   selectRange: (anchorId, targetId) => {
     const nodes = findFlatNodesForId(get().nodesByRootId, anchorId);
@@ -520,8 +601,8 @@ export const useOutlinerStore = create<OutlinerState>((set, get) => ({
   debouncedUpdateContent: (id, content) =>
     debouncedUpdateContent(id, content, get, set),
 
-  flushUpdateContent: (id, content) =>
-    flushUpdateContent(id, content, get, set),
+  flushUpdateContent: (id, content, options) =>
+    flushUpdateContent(id, content, get, set, options),
 
   addSibling: (afterId, initialContent) =>
     runAddSibling(afterId, get, set, () => get().refresh(), initialContent),
@@ -545,7 +626,14 @@ export const useOutlinerStore = create<OutlinerState>((set, get) => ({
 
   toggleCollapse: (id) => runToggleCollapse(id),
 
-  toggleTaskStatus: (ids) => runToggleTaskStatus(ids, get, set),
+  cycleTaskStatus: (ids) => runCycleTaskStatus(ids, get, set),
+  toggleBlockTodoType: (ids) => runCycleTaskStatus(ids, get, set),
+
+  toggleTaskCompletion: (ids) => runToggleTaskCompletion(ids, get, set),
+
+  updateNodeMetadata: (ids, patch) => runUpdateNodeMetadata(ids, patch, get, set),
+
+  toggleTaskStatus: (ids) => runCycleTaskStatus(ids, get, set),
 
   moveBlock: (id, newParentId, prevSiblingOrder, nextSiblingOrder) =>
     runMoveBlock(
@@ -555,6 +643,36 @@ export const useOutlinerStore = create<OutlinerState>((set, get) => ({
       nextSiblingOrder,
       () => get().refresh(),
     ),
+
+  moveNodeToPage: (nodeId, targetPageRootId) =>
+    runMoveNodeToPage(nodeId, targetPageRootId, get, set, () => get().refresh()),
+
+  openMoveTarget: (nodeId) => set({ moveTargetNodeId: nodeId }),
+
+  closeMoveTarget: () => set({ moveTargetNodeId: null }),
+
+  navigateToInbox: async () => {
+    await get().navigateToRoot(INBOX_PAGE_ID);
+    const { useWorkspaceStore } = await import("./workspaceStore");
+    useWorkspaceStore.getState().openPage(INBOX_PAGE_ID, INBOX_PAGE_TITLE);
+  },
+
+  quickAddToInbox: async (text) => {
+    const trimmed = text.trim();
+    if (trimmed === "") {
+      return;
+    }
+
+    const context = getDbContext();
+    if (!context) {
+      return;
+    }
+
+    await ensureInboxPage(context.db);
+    const content = plainTextToBlockContent(trimmed);
+    await createNode(context.db, INBOX_PAGE_ID, content);
+    await get().refresh();
+  },
 
   setDragProjection: (projection) => set({ dragProjection: projection }),
 

@@ -1,4 +1,5 @@
 import type { RuleonDb as DB } from "../db/types";
+import { dedupeInboxPages, ensureInboxPage } from "./inboxPage";
 import { ensureWelcomePage } from "./welcomePage";
 
 function newId(): string {
@@ -11,6 +12,8 @@ function now(): number {
 
 export async function seedIfEmpty(db: DB): Promise<void> {
   await ensureWelcomePage(db);
+  await ensureInboxPage(db);
+  await dedupeInboxPages(db);
 }
 
 export function createNodeId(): string {

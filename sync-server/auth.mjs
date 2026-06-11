@@ -1,3 +1,5 @@
+import { extractClientSchemaVersion, schemaVersionsMatch } from "./schemaVersion.mjs";
+
 /**
  * Static API token auth for sync-server HTTP and WebSocket upgrade paths.
  * Set API_KEY in sync-server/.env (see .env.example).
@@ -23,13 +25,29 @@ export function createHttpAuthMiddleware(apiKey) {
   };
 }
 
-export function createWebsocketAuthenticator(apiKey) {
-  return (_req, token, cb) => {
-    if (token === apiKey) {
-      cb(null);
+export function createWebsocketAuthenticator(apiKey, expectedSchemaVersion) {
+  return (req, token, cb) => {
+    if (token !== apiKey) {
+      cb(new Error("Unauthorized: Invalid API Key"));
       return;
     }
-    cb(new Error("Unauthorized"));
+
+    const clientSchemaVersion = extractClientSchemaVersion(req);
+    if (clientSchemaVersion == null) {
+      cb(new Error("Schema Mismatch: schema_version is required"));
+      return;
+    }
+
+    if (!schemaVersionsMatch(clientSchemaVersion, expectedSchemaVersion)) {
+      cb(
+        new Error(
+          `Schema Mismatch. Server: ${expectedSchemaVersion}, Client: ${clientSchemaVersion}`,
+        ),
+      );
+      return;
+    }
+
+    cb(null);
   };
 }
 

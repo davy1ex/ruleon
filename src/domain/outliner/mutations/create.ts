@@ -2,6 +2,10 @@ import type { RuleonDb as DB } from "../../db/types";
 import type { BlockContentJSON } from "../contentTypes";
 import { serializeForDb } from "../../../features/editor/serialization/serializeForDb";
 import { createNodeId, currentTimestamp } from "../seed";
+import {
+  initialNodeMetadata,
+  serializeMetadata,
+} from "../metadata";
 import { getNodeById, getSiblings } from "../queries";
 import { indexBlockLinksForNewNode } from "./blockLinks";
 
@@ -19,12 +23,13 @@ export async function createNode(
     (await nextSortOrder(db, parentId));
   const stored =
     typeof content === "string" ? content : serializeForDb(content);
+  const metadata = serializeMetadata(initialNodeMetadata());
 
   await db.exec(
     `INSERT INTO outline_nodes
-      (id, parent_id, content, sort_order, collapsed, created_at, updated_at)
-     VALUES (?, ?, ?, ?, 0, ?, ?)`,
-    [nodeId, parentId, stored, order, timestamp, timestamp],
+      (id, parent_id, content, sort_order, collapsed, metadata, created_at, updated_at)
+     VALUES (?, ?, ?, ?, 0, ?, ?, ?)`,
+    [nodeId, parentId, stored, order, metadata, timestamp, timestamp],
   );
   await indexBlockLinksForNewNode(db, nodeId, content);
 
@@ -52,6 +57,7 @@ export async function createSibling(
   const timestamp = currentTimestamp();
   const stored =
     typeof content === "string" ? content : serializeForDb(content);
+  const metadata = serializeMetadata(initialNodeMetadata());
 
   await db.exec("BEGIN");
   try {
@@ -59,9 +65,9 @@ export async function createSibling(
     const nodeId = newId ?? createNodeId();
     await db.exec(
       `INSERT INTO outline_nodes
-        (id, parent_id, content, sort_order, collapsed, created_at, updated_at)
-       VALUES (?, ?, ?, ?, 0, ?, ?)`,
-      [nodeId, node.parent_id, stored, nextOrder, timestamp, timestamp],
+        (id, parent_id, content, sort_order, collapsed, metadata, created_at, updated_at)
+       VALUES (?, ?, ?, ?, 0, ?, ?, ?)`,
+      [nodeId, node.parent_id, stored, nextOrder, metadata, timestamp, timestamp],
     );
     await indexBlockLinksForNewNode(db, nodeId, content);
     await db.exec("COMMIT");

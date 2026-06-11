@@ -8,7 +8,7 @@ import { useWorkspaceStore } from "../store/workspaceStore";
 export interface PaletteItem {
   id: string;
   label: string;
-  kind: "page" | "jump";
+  kind: "page" | "jump" | "create";
   targetTitle?: string;
 }
 
@@ -57,12 +57,32 @@ export function usePageSearchPalette(options: UsePageSearchPaletteOptions = {}) 
       });
     }
 
+    const trimmedQuery = query.trim();
+    if (
+      trimmedQuery &&
+      !items.some(
+        (item) =>
+          item.kind === "page" &&
+          item.label.toLowerCase() === trimmedQuery.toLowerCase(),
+      )
+    ) {
+      items.push({
+        id: `create-${trimmedQuery}`,
+        label: `Create new page: "${trimmedQuery}"`,
+        kind: "create",
+        targetTitle: trimmedQuery,
+      });
+    }
+
     return items;
   }, [pagesList, query]);
 
   const selectItem = useCallback(
     async (item: PaletteItem) => {
-      if (item.kind === "jump" && item.targetTitle) {
+      if (
+        (item.kind === "jump" || item.kind === "create") &&
+        item.targetTitle
+      ) {
         await navigateToPage(item.targetTitle);
         const rootId = useOutlinerStore.getState().currentRootId;
         const title =

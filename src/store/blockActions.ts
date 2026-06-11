@@ -9,6 +9,7 @@ import { mergeNodes } from "../domain/outliner/mutations/merge";
 import {
   indentUnderParent,
   moveNode,
+  moveNodeToPageRoot,
   outdentNode,
 } from "../domain/outliner/mutations/move";
 import { splitNode } from "../domain/outliner/mutations/split";
@@ -24,7 +25,9 @@ import { extractPlainText } from "../features/editor/serialization/extractPlainT
 import { serializeForDb } from "../features/editor/serialization/serializeForDb";
 import { shareSameTreeRoot } from "../features/outliner/treeOps";
 import { createNodeId } from "../domain/outliner/seed";
+import { initialNodeMetadata } from "../domain/outliner/metadata";
 import { getDbContext } from "./dbContext";
+import { beginFocusHandoff } from "./focusHandoff";
 
 export type CursorRestore = { nodeId: string; pos: number };
 
@@ -195,6 +198,7 @@ function applyOptimisticSplit(
     sort_order: computeOptimisticSplitSortOrder(nodes, index),
     collapsed: 0,
     task_status: null,
+    metadata: initialNodeMetadata(new Date(timestamp).toISOString()),
     created_at: timestamp,
     updated_at: timestamp,
     depth: current.depth,
@@ -321,6 +325,7 @@ function applyOptimisticAddSibling(
     sort_order: computeOptimisticSplitSortOrder(nodes, index),
     collapsed: 0,
     task_status: null,
+    metadata: initialNodeMetadata(new Date(timestamp).toISOString()),
     created_at: timestamp,
     updated_at: timestamp,
     depth: current.depth,
@@ -333,12 +338,37 @@ function applyOptimisticAddSibling(
   return { ...nodesByRootId, [rootKey]: updated };
 }
 
-const CONTENT_DEBOUNCE_MS = 750;
+const CONTENT_DEBOUNCE_MS = 500;
 
 const pendingContentUpdates = new Map<
   string,
   { timeout: ReturnType<typeof setTimeout>; content: BlockContentJSON }
 >();
+
+const liveEditorContent = new Map<string, BlockContentJSON>();
+const activeEditorSnapshots = new Map<string, () => BlockContentJSON>();
+
+export function registerActiveEditor(
+  id: string,
+  getContent: () => BlockContentJSON,
+): void {
+  activeEditorSnapshots.set(id, getContent);
+}
+
+export function unregisterActiveEditor(id: string): void {
+  activeEditorSnapshots.delete(id);
+}
+
+export function syncLiveEditorContent(
+  id: string,
+  content: BlockContentJSON,
+): void {
+  liveEditorContent.set(id, content);
+}
+
+export function clearLiveEditorContent(id: string): void {
+  liveEditorContent.delete(id);
+}
 
 export function cancelDebouncedUpdateContent(id: string): void {
   const pending = pendingContentUpdates.get(id);
@@ -376,10 +406,17 @@ async function persistContentUpdate(
   content: BlockContentJSON,
   get: StoreGet,
   set: StoreSet,
+  options?: { syncStore?: boolean },
 ): Promise<void> {
+  const syncStore = options?.syncStore ?? true;
   const { nodesByRootId, linkedReferenceNodesById } = get();
   const current = findNodeContent(nodesByRootId, id);
-  if (!current || !contentEquals(current, content)) {
+  if (isDocumentEmpty(content)) {
+    if (!current || !isDocumentEmpty(current)) {
+      return;
+    }
+  }
+  if (syncStore && (!current || !contentEquals(current, content))) {
     set({
       nodesByRootId: applyOptimisticContentUpdate(nodesByRootId, id, content),
       linkedReferenceNodesById: applyOptimisticContentUpdate(
@@ -394,7 +431,25 @@ async function persistContentUpdate(
   if (!db) {
     return;
   }
-  await updateOutlineContent(db, id, content);
+  try {
+    await updateOutlineContent(db, id, content);
+  } catch (error) {
+    console.error("CRITICAL: persistContentUpdate failed:", { id, error });
+    throw error;
+  }
+}
+
+async function safePersistContentUpdate(
+  id: string,
+  content: BlockContentJSON,
+  get: StoreGet,
+  set: StoreSet,
+): Promise<void> {
+  try {
+    await persistContentUpdate(id, content, get, set);
+  } catch (error) {
+    console.error("CRITICAL: Flush failed:", { id, error });
+  }
 }
 
 export async function flushUpdateContent(
@@ -402,9 +457,53 @@ export async function flushUpdateContent(
   content: BlockContentJSON,
   get: StoreGet,
   set: StoreSet,
+  options?: { syncStore?: boolean },
 ): Promise<void> {
   cancelDebouncedUpdateContent(id);
-  await persistContentUpdate(id, content, get, set);
+  if (options?.syncStore !== false) {
+    liveEditorContent.delete(id);
+  }
+  await persistContentUpdate(id, content, get, set, options);
+}
+
+export async function flushAllPendingContentUpdates(
+  get: StoreGet,
+  set: StoreSet,
+): Promise<void> {
+  for (const [id, getContent] of activeEditorSnapshots.entries()) {
+    try {
+      const content = getContent();
+      cancelDebouncedUpdateContent(id);
+      await safePersistContentUpdate(id, content, get, set);
+      liveEditorContent.delete(id);
+    } catch (error) {
+      console.error("CRITICAL: active editor snapshot flush failed:", {
+        id,
+        error,
+      });
+    }
+  }
+
+  const liveEntries = [...liveEditorContent.entries()];
+  for (const [id, content] of liveEntries) {
+    if (activeEditorSnapshots.has(id)) {
+      continue;
+    }
+    cancelDebouncedUpdateContent(id);
+    await safePersistContentUpdate(id, content, get, set);
+    liveEditorContent.delete(id);
+  }
+
+  const pending = [...pendingContentUpdates.entries()];
+  for (const [id] of pending) {
+    cancelDebouncedUpdateContent(id);
+  }
+
+  await Promise.all(
+    pending.map(([id, entry]) =>
+      safePersistContentUpdate(id, entry.content, get, set),
+    ),
+  );
 }
 
 export function runUpdateContent(
@@ -448,11 +547,12 @@ export async function runAddSibling(
       initialContent,
     ) ?? linkedReferenceNodesById;
 
+  beginFocusHandoff(newId);
   set({
     nodesByRootId: nextNodesByRootId,
     linkedReferenceNodesById: nextLinkedReferenceNodesById,
     focusedId: newId,
-    pendingCursorRestore: { nodeId: newId, pos: 1 },
+    pendingCursorRestore: { nodeId: newId, pos: 0 },
     selectedIds: [],
   });
 
@@ -463,7 +563,10 @@ export async function runAddSibling(
   }
 
   await refresh();
-  restoreFocusAfterMove(createdId, set);
+  if (get().focusedId !== createdId) {
+    beginFocusHandoff(createdId);
+    restoreFocusAfterMove(createdId, set);
+  }
 }
 
 export async function runSplitBlock(
@@ -474,7 +577,34 @@ export async function runSplitBlock(
   set: StoreSet,
   refresh: () => Promise<void>,
 ): Promise<void> {
-  if (isDocumentEmpty(leftPart) && isDocumentEmpty(rightPart)) {
+  if (isDocumentEmpty(rightPart)) {
+    if (!isDocumentEmpty(leftPart)) {
+      const rootKey = Object.keys(get().nodesByRootId).find((key) =>
+        get().nodesByRootId[key].some((node) => node.id === id),
+      );
+      if (rootKey) {
+        const nodes = get().nodesByRootId[rootKey];
+        const index = nodes.findIndex((node) => node.id === id);
+        if (index >= 0) {
+          const updated = [...nodes];
+          updated[index] = { ...nodes[index], content: leftPart };
+          set({
+            nodesByRootId: {
+              ...get().nodesByRootId,
+              [rootKey]: updated,
+            },
+          });
+        }
+      }
+
+      const db = getDbContext()?.db;
+      if (db) {
+        cancelDebouncedUpdateContent(id);
+        await updateOutlineContent(db, id, leftPart);
+      }
+    }
+
+    await runAddSibling(id, get, set, refresh);
     return;
   }
 
@@ -502,11 +632,12 @@ export async function runSplitBlock(
     ) ?? linkedReferenceNodesById;
 
   cancelDebouncedUpdateContent(id);
+  beginFocusHandoff(newId);
   set({
     nodesByRootId: nextNodesByRootId,
     linkedReferenceNodesById: nextLinkedReferenceNodesById,
     focusedId: newId,
-    pendingCursorRestore: { nodeId: newId, pos: 1 },
+    pendingCursorRestore: { nodeId: newId, pos: 0 },
     selectedIds: [],
   });
 
@@ -522,7 +653,10 @@ export async function runSplitBlock(
       return;
     }
     await refresh();
-    restoreFocusAfterMove(createdId, set);
+    if (get().focusedId !== createdId) {
+      beginFocusHandoff(createdId);
+      restoreFocusAfterMove(createdId, set);
+    }
   } catch (error) {
     console.error("[splitBlock] failed:", error);
     await refresh();
@@ -532,7 +666,7 @@ export async function runSplitBlock(
 function restoreFocusAfterMove(id: string, set: StoreSet): void {
   set({
     focusedId: id,
-    pendingCursorRestore: { nodeId: id, pos: 1 },
+    pendingCursorRestore: { nodeId: id, pos: 0 },
   });
 }
 
@@ -610,6 +744,32 @@ export async function runOutdent(
     restoreFocusAfterMove(id, set);
   } catch (error) {
     console.error("[outdent] failed:", error);
+    await refresh();
+  }
+}
+
+export async function runMoveNodeToPage(
+  nodeId: string,
+  targetPageRootId: string,
+  get: StoreGet,
+  set: StoreSet,
+  refresh: () => Promise<void>,
+): Promise<void> {
+  const db = getDbContext()?.db;
+  if (!db) {
+    return;
+  }
+
+  try {
+    const moved = await moveNodeToPageRoot(db, nodeId, targetPageRootId);
+    if (!moved) {
+      return;
+    }
+    set({ moveTargetNodeId: null });
+    restoreFocusAfterMove(nodeId, set);
+    await refresh();
+  } catch (error) {
+    console.error("[moveNodeToPage] failed:", error);
     await refresh();
   }
 }

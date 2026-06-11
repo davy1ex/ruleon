@@ -5,6 +5,7 @@ import { isDocumentEmpty } from "./document/isDocumentEmpty";
 import {
   extractPlainText,
   parseStoredContent,
+  plainTextToBlockContent,
   serializeForDb,
 } from "./serialization/contentCodec";
 
@@ -25,6 +26,16 @@ describe("contentCodec", () => {
     const doc = parseStoredContent("test");
     expect(JSON.parse(serializeForDb(doc)).type).toBe("doc");
   });
+
+  it("plainTextToBlockContent produces valid JSON for SQLite content column", () => {
+    const doc = plainTextToBlockContent("note with [[Wiki]]");
+    const stored = serializeForDb(doc);
+    const parsed = JSON.parse(stored) as { type: string };
+    expect(parsed.type).toBe("doc");
+    expect(extractPlainText(parseStoredContent(stored))).toBe(
+      "note with [[Wiki]]",
+    );
+  });
 });
 
 describe("mergeDocuments", () => {
@@ -40,5 +51,19 @@ describe("mergeDocuments", () => {
 describe("isDocumentEmpty", () => {
   it("treats empty paragraph as empty", () => {
     expect(isDocumentEmpty(EMPTY_DOCUMENT)).toBe(true);
+  });
+
+  it("treats query portals as non-empty", () => {
+    expect(
+      isDocumentEmpty({
+        type: "doc",
+        content: [
+          {
+            type: "queryPortal",
+            attrs: { target: "todo", filter: "todo" },
+          },
+        ],
+      }),
+    ).toBe(false);
   });
 });

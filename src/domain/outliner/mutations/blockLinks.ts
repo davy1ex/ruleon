@@ -5,9 +5,16 @@ import {
 } from "../../../features/editor/serialization/extractLinksFromDoc";
 import { serializeForDb } from "../../../features/editor/serialization/serializeForDb";
 import type { BlockContentJSON } from "../contentTypes";
+import {
+  applyContentMetadata,
+  parseMetadata,
+  serializeMetadata,
+  tagsFromContent,
+} from "../metadata";
 import { currentTimestamp } from "../seed";
 
 export type DbExecutor = Pick<DB, "exec">;
+type DbWithPrepare = Pick<DB, "exec" | "prepare">;
 
 export async function syncBlockLinks(
   db: DbExecutor,
@@ -51,16 +58,25 @@ export async function syncNodeTags(
 }
 
 export async function persistBlockContent(
-  db: DbExecutor,
+  db: DbWithPrepare,
   id: string,
   content: BlockContentJSON,
 ): Promise<void> {
   const stored = serializeForDb(content);
   const timestamp = currentTimestamp();
+  const tags = tagsFromContent(content);
+
+  const stmt = await db.prepare(`SELECT metadata FROM outline_nodes WHERE id = ?`);
+  const row = (await stmt.get(null, id)) as { metadata: string } | undefined;
+  await stmt.finalize(null);
+
+  const metadata = serializeMetadata(
+    applyContentMetadata(parseMetadata(row?.metadata), tags),
+  );
 
   await db.exec(
-    `UPDATE outline_nodes SET content = ?, updated_at = ? WHERE id = ?`,
-    [stored, timestamp, id],
+    `UPDATE outline_nodes SET content = ?, metadata = ?, updated_at = ? WHERE id = ?`,
+    [stored, metadata, timestamp, id],
   );
   await syncBlockLinks(db, id, content);
   await syncNodeTags(db, id, content);

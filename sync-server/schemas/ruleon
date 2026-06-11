@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS outline_nodes (
   sort_order INTEGER NOT NULL DEFAULT 0,
   collapsed INTEGER NOT NULL DEFAULT 0,
   task_status TEXT,
+  metadata TEXT NOT NULL DEFAULT '{}',
   created_at INTEGER NOT NULL DEFAULT 0,
   updated_at INTEGER NOT NULL DEFAULT 0
 );
@@ -56,3 +57,10 @@ CREATE TABLE IF NOT EXISTS kv_state (
 );
 
 SELECT crsql_as_crr('kv_state');
+
+CREATE TABLE IF NOT EXISTS app_settings (
+  key TEXT PRIMARY KEY NOT NULL DEFAULT '',
+  value TEXT NOT NULL DEFAULT ''
+);
+
+SELECT crsql_as_crr('app_settings');

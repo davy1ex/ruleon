@@ -7,6 +7,7 @@ export default {
         surface: {
           primary: "var(--color-bg-primary)",
           secondary: "var(--color-bg-secondary)",
+          muted: "var(--color-bg-secondary)",
           ribbon: "var(--color-bg-ribbon)",
           sidebar: "var(--color-bg-sidebar)",
           workspace: "var(--color-bg-workspace)",

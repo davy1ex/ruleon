@@ -21,6 +21,7 @@ function node(
     sort_order: 0,
     collapsed: 0,
     task_status: null,
+    metadata: {},
     created_at: 0,
     updated_at: 0,
     depth,

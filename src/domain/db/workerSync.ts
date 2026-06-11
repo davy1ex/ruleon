@@ -1,6 +1,10 @@
 import { createSyncedDB } from "@vlcn.io/ws-client";
 import type { DB as WasmDB } from "@vlcn.io/crsqlite-wasm";
 import {
+  dedupeInboxPages,
+  ensureInboxPage,
+} from "../outliner/inboxPage";
+import {
   dedupeWelcomePages,
   ensureWelcomePage,
 } from "../outliner/welcomePage";
@@ -11,6 +15,14 @@ import { wrapExistingWasmDb } from "./wrapWasmDbForSync";
 const DB_NAME = "ruleon.db";
 
 let syncedDb: Awaited<ReturnType<typeof createSyncedDB>> | null = null;
+
+async function readSchemaVersion(db: WasmDB): Promise<string> {
+  const rows = await db.execA<[number | bigint]>(
+    `SELECT value FROM crsql_master WHERE key = 'schema_version'`,
+  );
+  const value = rows[0]?.[0];
+  return value == null ? "0" : String(value);
+}
 
 export async function startSyncInWorker(
   db: WasmDB,
@@ -31,6 +43,7 @@ export async function startSyncInWorker(
   onStatus("connecting");
 
   try {
+    const schemaVersion = await readSchemaVersion(db);
     syncedDb = await createSyncedDB(
       {
         dbProvider: async () => wrapExistingWasmDb(db),
@@ -41,9 +54,12 @@ export async function startSyncInWorker(
         url: endpoint,
         room: DB_NAME,
         authToken: apiKey.trim() === "" ? undefined : apiKey.trim(),
+        schemaVersion,
       },
     );
     await syncedDb.start();
+    await ensureInboxPage(db as never);
+    await dedupeInboxPages(db as never);
     await dedupeWelcomePages(db as never);
     await ensureWelcomePage(db as never);
     onStatus("connected");

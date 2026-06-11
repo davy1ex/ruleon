@@ -34,7 +34,7 @@ function EditorContent({ leaf }: { leaf: WorkspaceLeaf }) {
   const clearSelection = useOutlinerStore((s) => s.clearSelection);
   const addSibling = useOutlinerStore((s) => s.addSibling);
   const toggleCollapse = useOutlinerStore((s) => s.toggleCollapse);
-  const toggleTaskStatus = useOutlinerStore((s) => s.toggleTaskStatus);
+  const toggleTaskCompletion = useOutlinerStore((s) => s.toggleTaskCompletion);
   const renameCurrentPage = useOutlinerStore((s) => s.renameCurrentPage);
   const loadMoreJournalHistory = useOutlinerStore(
     (s) => s.loadMoreJournalHistory,
@@ -48,7 +48,7 @@ function EditorContent({ leaf }: { leaf: WorkspaceLeaf }) {
     onClearSelection: clearSelection,
     onAddSibling: (id: string) => void addSibling(id),
     onToggleCollapse: (id: string) => void toggleCollapse(id),
-    onToggleTaskStatus: (id: string) => void toggleTaskStatus(id),
+    onToggleTaskCompletion: (id: string) => void toggleTaskCompletion(id),
   };
 
   const handleLoadMore = useCallback(() => {
@@ -113,7 +113,7 @@ function JournalContent() {
   const clearSelection = useOutlinerStore((s) => s.clearSelection);
   const addSibling = useOutlinerStore((s) => s.addSibling);
   const toggleCollapse = useOutlinerStore((s) => s.toggleCollapse);
-  const toggleTaskStatus = useOutlinerStore((s) => s.toggleTaskStatus);
+  const toggleTaskCompletion = useOutlinerStore((s) => s.toggleTaskCompletion);
   const loadMoreJournalHistory = useOutlinerStore(
     (s) => s.loadMoreJournalHistory,
   );
@@ -126,7 +126,7 @@ function JournalContent() {
     onClearSelection: clearSelection,
     onAddSibling: (id: string) => void addSibling(id),
     onToggleCollapse: (id: string) => void toggleCollapse(id),
-    onToggleTaskStatus: (id: string) => void toggleTaskStatus(id),
+    onToggleTaskCompletion: (id: string) => void toggleTaskCompletion(id),
   };
 
   const handleLoadMore = useCallback(() => {

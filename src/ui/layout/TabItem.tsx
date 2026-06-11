@@ -24,10 +24,26 @@ interface TabItemProps {
 export function TabItem({ leaf, isActive, canClose }: TabItemProps) {
   const activateLeaf = useWorkspaceStore((s) => s.activateLeaf);
   const closeLeaf = useWorkspaceStore((s) => s.closeLeaf);
+  const closeOtherLeaves = useWorkspaceStore((s) => s.closeOtherLeaves);
+  const closeLeavesToLeft = useWorkspaceStore((s) => s.closeLeavesToLeft);
+  const closeLeavesToRight = useWorkspaceStore((s) => s.closeLeavesToRight);
   const toggleLeafPin = useWorkspaceStore((s) => s.toggleLeafPin);
+  const leafOrder = useWorkspaceStore((s) => s.leafOrder);
+  const leaves = useWorkspaceStore((s) => s.leaves);
 
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  const leafIndex = leafOrder.indexOf(leaf.id);
+  const canCloseOthers = leafOrder.some(
+    (id) => id !== leaf.id && !leaves[id]?.pinned,
+  );
+  const canCloseLeft = leafOrder
+    .slice(0, leafIndex)
+    .some((id) => !leaves[id]?.pinned);
+  const canCloseRight = leafOrder
+    .slice(leafIndex + 1)
+    .some((id) => !leaves[id]?.pinned);
 
   const {
     attributes,
@@ -76,6 +92,37 @@ export function TabItem({ leaf, isActive, canClose }: TabItemProps) {
     closeMenu();
   };
 
+  const handleCloseOthers = () => {
+    closeOtherLeaves(leaf.id);
+    closeMenu();
+  };
+
+  const handleCloseLeft = () => {
+    closeLeavesToLeft(leaf.id);
+    closeMenu();
+  };
+
+  const handleCloseRight = () => {
+    closeLeavesToRight(leaf.id);
+    closeMenu();
+  };
+
+  const contextMenu = menu ? (
+    <TabContextMenu
+      ref={menuRef}
+      x={menu.x}
+      y={menu.y}
+      pinned={Boolean(leaf.pinned)}
+      canCloseOthers={canCloseOthers}
+      canCloseLeft={canCloseLeft}
+      canCloseRight={canCloseRight}
+      onToggle={handlePinToggle}
+      onCloseOthers={handleCloseOthers}
+      onCloseLeft={handleCloseLeft}
+      onCloseRight={handleCloseRight}
+    />
+  ) : null;
+
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -107,15 +154,7 @@ export function TabItem({ leaf, isActive, canClose }: TabItemProps) {
             <TabLeafIcon type={leaf.type} />
           </button>
         </div>
-        {menu && (
-          <TabContextMenu
-            ref={menuRef}
-            x={menu.x}
-            y={menu.y}
-            pinned
-            onToggle={handlePinToggle}
-          />
-        )}
+        {contextMenu}
       </>
     );
   }
@@ -154,37 +193,85 @@ export function TabItem({ leaf, isActive, canClose }: TabItemProps) {
           </button>
         )}
       </div>
-      {menu && (
-        <TabContextMenu
-          ref={menuRef}
-          x={menu.x}
-          y={menu.y}
-          pinned={false}
-          onToggle={handlePinToggle}
-        />
-      )}
+      {contextMenu}
     </>
   );
 }
 
 const TabContextMenu = forwardRef<
   HTMLDivElement,
-  { x: number; y: number; pinned: boolean; onToggle: () => void }
->(function TabContextMenu({ x, y, pinned, onToggle }, ref) {
+  {
+    x: number;
+    y: number;
+    pinned: boolean;
+    canCloseOthers: boolean;
+    canCloseLeft: boolean;
+    canCloseRight: boolean;
+    onToggle: () => void;
+    onCloseOthers: () => void;
+    onCloseLeft: () => void;
+    onCloseRight: () => void;
+  }
+>(function TabContextMenu(
+  {
+    x,
+    y,
+    pinned,
+    canCloseOthers,
+    canCloseLeft,
+    canCloseRight,
+    onToggle,
+    onCloseOthers,
+    onCloseLeft,
+    onCloseRight,
+  },
+  ref,
+) {
+  const itemClass =
+    "w-full px-3 py-1.5 text-left text-sm text-text-normal hover:bg-interactive-hover disabled:cursor-not-allowed disabled:opacity-40";
+
   return (
     <div
       ref={ref}
       role="menu"
-      className="fixed z-50 min-w-[140px] rounded border border-border bg-surface-modal py-1 shadow-lg"
+      className="fixed z-50 min-w-[180px] rounded border border-border bg-surface-modal py-1 shadow-lg"
       style={{ left: x, top: y }}
     >
       <button
         type="button"
         role="menuitem"
         onClick={onToggle}
-        className="w-full px-3 py-1.5 text-left text-sm text-text-normal hover:bg-interactive-hover"
+        className={itemClass}
       >
         {pinned ? "Unpin tab" : "Pin tab"}
+      </button>
+      <div className="my-1 border-t border-border" role="separator" />
+      <button
+        type="button"
+        role="menuitem"
+        disabled={!canCloseOthers}
+        onClick={onCloseOthers}
+        className={itemClass}
+      >
+        Close other tabs
+      </button>
+      <button
+        type="button"
+        role="menuitem"
+        disabled={!canCloseLeft}
+        onClick={onCloseLeft}
+        className={itemClass}
+      >
+        Close tabs to the left
+      </button>
+      <button
+        type="button"
+        role="menuitem"
+        disabled={!canCloseRight}
+        onClick={onCloseRight}
+        className={itemClass}
+      >
+        Close tabs to the right
       </button>
     </div>
   );

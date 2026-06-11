@@ -14,8 +14,8 @@ export function QueryPortalPanel({
   filter,
   selected = false,
 }: QueryPortalPanelProps) {
-  const { rows, loading } = useQueryPortalResults(target, filter);
-  const toggleTaskStatus = useOutlinerStore((state) => state.toggleTaskStatus);
+  const { rows, loading, effectiveFilter } = useQueryPortalResults(target, filter);
+  const toggleTaskCompletion = useOutlinerStore((state) => state.toggleTaskCompletion);
   const navigateToPage = useOutlinerStore((state) => state.navigateToPage);
 
   return (
@@ -28,7 +28,11 @@ export function QueryPortalPanel({
     >
       <header className="mb-1 text-xs text-text-muted">
         Query: {target}
-        {filter === "todo" ? " (open tasks)" : ""}
+        {effectiveFilter === "todo"
+          ? " (open tasks)"
+          : effectiveFilter === "done"
+            ? " (completed tasks)"
+            : ""}
       </header>
 
       {loading ? (
@@ -44,8 +48,8 @@ export function QueryPortalPanel({
             <PortalBlockRow
               key={row.id}
               node={row}
-              onToggleTaskStatus={() => {
-                void toggleTaskStatus(row.id);
+              onToggleTaskCompletion={() => {
+                void toggleTaskCompletion(row.id);
               }}
               onNavigateWikiLink={(pageName) => {
                 void navigateToPage(pageName);

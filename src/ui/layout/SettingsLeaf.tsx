@@ -3,12 +3,15 @@ import {
   applyTheme,
   CORE_MODULES,
   THEME_OPTIONS,
+  WORKSPACE_PLUGINS,
   type AppSettings,
   type ThemeId,
   useSettingsStore,
 } from "../../store/settingsStore";
+import { useWorkspaceStore } from "../../store/workspaceStore";
 import { Button } from "../Button";
 import { SettingsToggle } from "./SettingsToggle";
+import { SyncStatusPanel } from "./SyncStatusPanel";
 
 function isPluginEnabled(settings: AppSettings, id: string): boolean {
   if (id === "sync") {
@@ -20,6 +23,8 @@ function isPluginEnabled(settings: AppSettings, id: string): boolean {
 export function SettingsLeaf() {
   const saveAndRestart = useSettingsStore((s) => s.saveAndRestart);
   const storedSettings = useSettingsStore((s) => s.settings);
+  const workspacePlugins = useWorkspaceStore((s) => s.plugins);
+  const togglePlugin = useWorkspaceStore((s) => s.togglePlugin);
   const [draft, setDraft] = useState<AppSettings>(storedSettings);
 
   useEffect(() => {
@@ -120,40 +125,7 @@ export function SettingsLeaf() {
             <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-text-muted">
               Sync
             </h3>
-            <div className="space-y-3">
-              <SettingsToggle
-                label="Enable Synchronization"
-                checked={draft.sync.enabled}
-                onChange={(enabled) => updateSync({ enabled })}
-              />
-              <label className="block">
-                <span className="mb-1 block text-sm text-text-normal">
-                  WebSocket URL
-                </span>
-                <input
-                  type="url"
-                  value={draft.sync.url}
-                  onChange={(e) => updateSync({ url: e.target.value })}
-                  disabled={!draft.sync.enabled}
-                  className="w-full rounded border border-border bg-surface-input px-3 py-1.5 text-sm text-text-normal disabled:bg-surface-secondary disabled:text-text-muted"
-                  placeholder="ws://localhost:8080/sync"
-                />
-              </label>
-              <label className="block">
-                <span className="mb-1 block text-sm text-text-normal">
-                  API key
-                </span>
-                <input
-                  type="password"
-                  value={draft.sync.apiKey}
-                  onChange={(e) => updateSync({ apiKey: e.target.value })}
-                  disabled={!draft.sync.enabled}
-                  className="w-full rounded border border-border bg-surface-input px-3 py-1.5 text-sm text-text-normal disabled:bg-surface-secondary disabled:text-text-muted"
-                  placeholder="Same as sync-server API_KEY"
-                  autoComplete="off"
-                />
-              </label>
-            </div>
+            <SyncStatusPanel sync={draft.sync} onSyncChange={updateSync} />
           </section>
 
           <section>
@@ -170,6 +142,18 @@ export function SettingsLeaf() {
                   />
                   <p className="mt-0.5 text-xs text-text-muted">
                     {module.description}
+                  </p>
+                </li>
+              ))}
+              {WORKSPACE_PLUGINS.map((plugin) => (
+                <li key={plugin.id}>
+                  <SettingsToggle
+                    label={plugin.label}
+                    checked={workspacePlugins[plugin.id]}
+                    onChange={() => togglePlugin(plugin.id)}
+                  />
+                  <p className="mt-0.5 text-xs text-text-muted">
+                    {plugin.description}
                   </p>
                 </li>
               ))}
