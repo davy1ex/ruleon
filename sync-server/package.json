@@ -12,6 +12,7 @@
     "sync-schema": "cp ../src/domain/db/schema.sql schemas/ruleon",
     "migrate": "node migrateDbs.mjs",
     "start": "node server.mjs",
+    "dev:sync": "npm run dev:sync --prefix ..",
     "cap:build": "node ../scripts/build-cap.mjs"
   },
   "dependencies": {

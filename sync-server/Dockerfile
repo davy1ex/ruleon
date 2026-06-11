@@ -9,9 +9,11 @@ RUN apt-get update \
 
 COPY sync-server/package.json sync-server/package-lock.json ./
 COPY sync-server/scripts/check-node.mjs scripts/check-node.mjs
-RUN npm ci --omit=dev
+RUN npm ci --omit=dev \
+  && npm rebuild better-sqlite3 --build-from-source
 
-COPY sync-server/ ./
+COPY sync-server/server.mjs sync-server/auth.mjs sync-server/migrateDbs.mjs sync-server/schemaVersion.mjs ./
+COPY sync-server/routes ./routes/
 COPY src/domain/db/schema.sql schemas/ruleon
 
 EXPOSE 8080

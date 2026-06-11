@@ -1,0 +1,14 @@
+**/node_modules
+sync-server/dbs
+sync-server/.env
+.git
+.gitignore
+android
+electron
+dist
+dist-electron
+release
+test-results
+playwright-report
+*.md
+!sync-server/schemas/**
