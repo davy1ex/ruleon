@@ -8,9 +8,8 @@ services:
     ports:
       - "${PORT:-8080}:8080"
     environment:
-      API_KEY: ${API_KEY:?API_KEY is required}
+      API_KEY: ${API_KEY}
       PORT: 8080
-      SERVICE_FQDN_SYNC_SERVER_8080
     volumes:
       - sync-dbs:/app/dbs
     restart: unless-stopped
