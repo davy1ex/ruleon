@@ -2,6 +2,11 @@ import type { DB as SyncDB } from "@vlcn.io/ws-client";
 import type { DB as WasmDB } from "@vlcn.io/crsqlite-wasm";
 import type { Change } from "@vlcn.io/ws-common";
 import { firstPick, type StmtAsync } from "@vlcn.io/xplat-api";
+import type { WorkerResponse } from "./rpcTypes";
+
+function notifySyncDataChanged(): void {
+  self.postMessage({ type: "syncDataChanged" } satisfies WorkerResponse);
+}
 
 class WrappedWasmDB implements SyncDB {
   readonly #db: WasmDB;
@@ -53,6 +58,9 @@ class WrappedWasmDB implements SyncDB {
     siteId: Uint8Array,
     end: readonly [bigint, number],
   ): Promise<void> {
+    if (changes.length === 0) {
+      return;
+    }
     this.#applyingRemoteChanges = true;
     try {
       await this.#db.tx(async (tx) => {
@@ -74,6 +82,7 @@ class WrappedWasmDB implements SyncDB {
       });
     } finally {
       this.#applyingRemoteChanges = false;
+      notifySyncDataChanged();
     }
   }
 

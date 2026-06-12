@@ -47,4 +47,5 @@ export type WorkerResponse =
   | { type: "response"; requestId: number; ok: false; error: string }
   | { type: "rxEvent"; subscriptionId: number; updates: number[] }
   | { type: "syncStatus"; status: SyncStatus }
+  | { type: "syncDataChanged" }
   | { type: "ready" };

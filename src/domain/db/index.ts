@@ -3,7 +3,11 @@ export type { SyncStatus } from "./syncStatus";
 export type { RuleonDb, DbContext } from "./types";
 
 import type { SyncStatus } from "./syncStatus";
-import { getWorkerRpc, setWorkerSyncStatusHandler } from "./initWorker";
+import {
+  getWorkerRpc,
+  setSyncDataChangedHandler,
+  setWorkerSyncStatusHandler,
+} from "./initWorker";
 
 export async function startSync(
   url: string,
@@ -27,6 +31,7 @@ export function stopSync(): void {
   }
   void rpc.request("syncStop", {});
   setWorkerSyncStatusHandler(null);
+  setSyncDataChangedHandler(null);
 }
 
 export async function getLocalSchemaVersion(): Promise<string> {

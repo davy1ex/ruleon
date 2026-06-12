@@ -11,6 +11,7 @@ const DB_NAME = import.meta.env.VITE_E2E === "1" ? "ruleon-e2e.db" : "ruleon.db"
 let workerInstance: Worker | null = null;
 let rpcInstance: DbRpc | null = null;
 let syncStatusHandler: ((status: SyncStatus) => void) | null = null;
+let syncDataChangedHandler: (() => void) | null = null;
 
 function waitForWorkerReady(worker: Worker): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -34,6 +35,12 @@ export function setWorkerSyncStatusHandler(
   syncStatusHandler = handler;
 }
 
+export function setSyncDataChangedHandler(
+  handler: (() => void) | null,
+): void {
+  syncDataChangedHandler = handler;
+}
+
 export async function initWorkerDatabase(): Promise<DbContext> {
   const worker = new Worker(new URL("./worker.ts", import.meta.url), {
     type: "module",
@@ -42,6 +49,10 @@ export async function initWorkerDatabase(): Promise<DbContext> {
   worker.addEventListener("message", (event: MessageEvent<WorkerResponse>) => {
     if (event.data.type === "syncStatus") {
       syncStatusHandler?.(event.data.status);
+      return;
+    }
+    if (event.data.type === "syncDataChanged") {
+      syncDataChangedHandler?.();
     }
   });
 
