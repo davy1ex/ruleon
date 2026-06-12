@@ -10,6 +10,10 @@ export interface NodeMetadata {
   awarded_xp?: number;
 }
 
+export function emptyNodeMetadata(): NodeMetadata {
+  return { tags: [], created_at: "", updated_at: "" };
+}
+
 export const extractTags = (text: string): string[] => {
   const matches = text.match(/#[\wа-яА-Я-]+/g);
   return matches ? matches.map((tag) => tag.slice(1).toLowerCase()) : [];

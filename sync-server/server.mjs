@@ -7,7 +7,7 @@ import { fileURLToPath } from "url";
 import { attachWebsocketServer } from "@vlcn.io/ws-server";
 import {
   createHttpAuthMiddleware,
-  createWebsocketAuthenticator,
+  createLoggingWebsocketAuthenticator,
   loadApiKey,
 } from "./auth.mjs";
 import { migrateServerDatabases } from "./migrateDbs.mjs";
@@ -61,7 +61,7 @@ attachWebsocketServer(
   },
   undefined,
   null,
-  createWebsocketAuthenticator(API_KEY, EXPECTED_SCHEMA_VERSION),
+  createLoggingWebsocketAuthenticator(API_KEY, EXPECTED_SCHEMA_VERSION),
 );
 
 server.listen(PORT, () => {

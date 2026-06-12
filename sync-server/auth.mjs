@@ -51,6 +51,19 @@ export function createWebsocketAuthenticator(apiKey, expectedSchemaVersion) {
   };
 }
 
+/** Log auth failure reason in Coolify logs (no secrets). */
+export function createLoggingWebsocketAuthenticator(apiKey, expectedSchemaVersion) {
+  const authenticate = createWebsocketAuthenticator(apiKey, expectedSchemaVersion);
+  return (req, token, cb) => {
+    authenticate(req, token, (err) => {
+      if (err) {
+        console.error(`WebSocket auth failed: ${err.message}`);
+      }
+      cb(err);
+    });
+  };
+}
+
 function isAuthorizedRequest(req, apiKey) {
   const headerToken = extractBearerOrApiKey(req);
   return headerToken === apiKey;

@@ -33,32 +33,45 @@ export async function checkSyncServerHealth(
     return { ok: false, message: "API key is required" };
   }
 
-  let response: Response;
+  let status: number;
+  let body: { ok?: boolean; schemaVersion?: string };
   try {
-    response = await fetch(endpoint);
+    if (window.electronAPI?.fetchHealth) {
+      const result = await window.electronAPI.fetchHealth(endpoint);
+      status = result.status;
+      body = (result.body ?? {}) as { ok?: boolean; schemaVersion?: string };
+      if (!result.ok) {
+        if (status === 401) {
+          return { ok: false, message: "Invalid API key" };
+        }
+        return {
+          ok: false,
+          message: `Server returned ${status}`,
+        };
+      }
+    } else {
+      const response = await fetch(endpoint);
+      status = response.status;
+      if (status === 401) {
+        return { ok: false, message: "Invalid API key" };
+      }
+      if (!response.ok) {
+        return {
+          ok: false,
+          message: `Server returned ${status} ${response.statusText}`,
+        };
+      }
+      try {
+        body = (await response.json()) as { ok?: boolean; schemaVersion?: string };
+      } catch {
+        return { ok: false, message: "Invalid health response from server" };
+      }
+    }
   } catch {
     return {
       ok: false,
       message: `Cannot reach server at ${endpoint}`,
     };
-  }
-
-  if (response.status === 401) {
-    return { ok: false, message: "Invalid API key" };
-  }
-
-  if (!response.ok) {
-    return {
-      ok: false,
-      message: `Server returned ${response.status} ${response.statusText}`,
-    };
-  }
-
-  let body: { ok?: boolean; schemaVersion?: string };
-  try {
-    body = (await response.json()) as { ok?: boolean; schemaVersion?: string };
-  } catch {
-    return { ok: false, message: "Invalid health response from server" };
   }
 
   const serverSchemaVersion = body.schemaVersion ?? "";

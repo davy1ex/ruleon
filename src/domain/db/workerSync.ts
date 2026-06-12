@@ -1,5 +1,6 @@
 import { createSyncedDB } from "@vlcn.io/ws-client";
 import type { DB as WasmDB } from "@vlcn.io/crsqlite-wasm";
+import { dedupeDateJournalPages } from "../pages/dateJournalPage";
 import {
   dedupeInboxPages,
   ensureInboxPage,
@@ -44,20 +45,22 @@ export async function startSyncInWorker(
 
   try {
     const schemaVersion = await readSchemaVersion(db);
+    const transportProvider = createStatusTransportProvider(onStatus);
     syncedDb = await createSyncedDB(
       {
         dbProvider: async () => wrapExistingWasmDb(db),
-        transportProvider: createStatusTransportProvider(onStatus),
+        transportProvider: (opts) =>
+          transportProvider({ ...opts, schemaVersion }),
       },
       DB_NAME,
       {
         url: endpoint,
         room: DB_NAME,
         authToken: apiKey.trim() === "" ? undefined : apiKey.trim(),
-        schemaVersion,
       },
     );
     await syncedDb.start();
+    await dedupeDateJournalPages(db as never);
     await ensureInboxPage(db as never);
     await dedupeInboxPages(db as never);
     await dedupeWelcomePages(db as never);

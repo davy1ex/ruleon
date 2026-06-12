@@ -109,7 +109,9 @@ export async function getOrCreatePage(
   }
 
   const trimmedTitle = title.trim();
-  const id = createNodeId();
+  const id = isDatePage(trimmedTitle)
+    ? legacyJournalIdForDateTitle(trimmedTitle)
+    : createNodeId();
   await createNode(db, null, trimmedTitle, undefined, id);
   return { id, title: trimmedTitle };
 }

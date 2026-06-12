@@ -1,14 +1,7 @@
 import type { DB as SyncDB } from "@vlcn.io/ws-client";
 import type { DB as WasmDB } from "@vlcn.io/crsqlite-wasm";
 import type { Change } from "@vlcn.io/ws-common";
-import tblrx from "@vlcn.io/rx-tbl";
 import { firstPick, type StmtAsync } from "@vlcn.io/xplat-api";
-
-const ENVIRONMENT_IS_WORKER =
-  typeof globalThis !== "undefined" &&
-  "importScripts" in globalThis &&
-  typeof (globalThis as { importScripts?: () => void }).importScripts ===
-    "function";
 
 class WrappedWasmDB implements SyncDB {
   readonly #db: WasmDB;
@@ -17,7 +10,7 @@ class WrappedWasmDB implements SyncDB {
   readonly #updatePeerTrackerStmt: StmtAsync;
   readonly #schemaName: string;
   readonly #schemaVersion: bigint;
-  readonly #rx: ReturnType<typeof tblrx>;
+  #applyingRemoteChanges = false;
 
   constructor(
     db: WasmDB,
@@ -34,7 +27,6 @@ class WrappedWasmDB implements SyncDB {
     this.#updatePeerTrackerStmt = updatePeerTrackerStmt;
     this.#schemaName = schemaName;
     this.#schemaVersion = schemaVersion;
-    this.#rx = tblrx(db);
   }
 
   async pullChangeset(
@@ -61,23 +53,28 @@ class WrappedWasmDB implements SyncDB {
     siteId: Uint8Array,
     end: readonly [bigint, number],
   ): Promise<void> {
-    await this.#db.tx(async (tx) => {
-      for (const change of changes) {
-        await this.#applyChangesetStmt.run(
-          tx,
-          change[0],
-          change[1],
-          change[2],
-          change[3],
-          change[4],
-          change[5],
-          siteId,
-          change[7],
-          change[8],
-        );
-      }
-      await this.#updatePeerTrackerStmt.run(tx, siteId, 0, end[0], end[1]);
-    });
+    this.#applyingRemoteChanges = true;
+    try {
+      await this.#db.tx(async (tx) => {
+        for (const change of changes) {
+          await this.#applyChangesetStmt.run(
+            tx,
+            change[0],
+            change[1],
+            change[2],
+            change[3],
+            change[4],
+            change[5],
+            siteId,
+            change[7],
+            change[8],
+          );
+        }
+        await this.#updatePeerTrackerStmt.run(tx, siteId, 0, end[0], end[1]);
+      });
+    } finally {
+      this.#applyingRemoteChanges = false;
+    }
   }
 
   async getLastSeens(): Promise<[Uint8Array, [bigint, number]][]> {
@@ -92,11 +89,10 @@ class WrappedWasmDB implements SyncDB {
   }
 
   onChange(cb: () => void): () => void {
-    return this.#rx.onAny((_, src) => {
-      if (ENVIRONMENT_IS_WORKER) {
-        if (src !== "thisProcess") {
-          cb();
-        }
+    // App DB and sync share one worker (not vlc's separate sync worker).
+    // Local edits are thisProcess; listen via onUpdate and skip inbound apply.
+    return this.#db.onUpdate((_updateType, _dbName, tblName) => {
+      if (tblName.includes("__crsql") || this.#applyingRemoteChanges) {
         return;
       }
       cb();
@@ -107,7 +103,6 @@ class WrappedWasmDB implements SyncDB {
     this.#pullChangesetStmt.finalize(null);
     this.#applyChangesetStmt.finalize(null);
     this.#updatePeerTrackerStmt.finalize(null);
-    this.#rx.dispose();
     if (closeWrappedDB) {
       this.#db.close();
     }

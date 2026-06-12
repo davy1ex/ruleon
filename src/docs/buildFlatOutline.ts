@@ -1,3 +1,4 @@
+import { emptyNodeMetadata } from "../domain/outliner/metadata";
 import type { FlatOutlineNode, TaskStatus } from "../domain/outliner/types";
 import { paragraph } from "./contentHelpers";
 
@@ -25,7 +26,7 @@ export function buildFlatOutline(
       sort_order: sortBase + index,
       collapsed: 0,
       task_status: item.taskStatus ?? null,
-      metadata: {},
+      metadata: emptyNodeMetadata(),
       created_at: 0,
       updated_at: 0,
       depth,

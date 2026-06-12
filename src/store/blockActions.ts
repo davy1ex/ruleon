@@ -705,7 +705,7 @@ export async function runOutdent(
 export async function runMoveNodeToPage(
   nodeId: string,
   targetPageRootId: string,
-  get: StoreGet,
+  _get: StoreGet,
   set: StoreSet,
   refresh: () => Promise<void>,
 ): Promise<void> {

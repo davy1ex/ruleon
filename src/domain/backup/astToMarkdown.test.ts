@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { emptyNodeMetadata } from "../outliner/metadata";
 import { appendBlocksAsMarkdown, blockDocToLine } from "./astToMarkdown";
 import type { OutlineTreeNode } from "../outliner/types";
 
@@ -52,7 +53,7 @@ describe("appendBlocksAsMarkdown", () => {
         sort_order: 0,
         collapsed: 0,
         task_status: null,
-        metadata: {},
+        metadata: emptyNodeMetadata(),
         created_at: 0,
         updated_at: 0,
         depth: 0,
@@ -67,7 +68,7 @@ describe("appendBlocksAsMarkdown", () => {
             sort_order: 0,
             collapsed: 0,
             task_status: "DONE",
-            metadata: {},
+            metadata: emptyNodeMetadata(),
             created_at: 0,
             updated_at: 0,
             depth: 1,

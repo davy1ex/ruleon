@@ -2,6 +2,12 @@ import { contextBridge, ipcRenderer } from "electron";
 import type { DualBackupPayload } from "./backupTypes.js";
 
 contextBridge.exposeInMainWorld("electronAPI", {
+  fetchHealth: (endpoint: string) =>
+    ipcRenderer.invoke("sync:healthCheck", endpoint) as Promise<{
+      ok: boolean;
+      status: number;
+      body: unknown;
+    }>,
   saveDualBackup: (payload: DualBackupPayload) =>
     ipcRenderer.invoke("backup:save", payload),
   platform: process.platform,

@@ -1,3 +1,4 @@
+import { emptyNodeMetadata } from "../../domain/outliner/metadata";
 import type { OutlineNodeRow } from "../../domain/outliner/types";
 import { parseStoredContent } from "../../features/editor/serialization/parseStoredContent";
 
@@ -15,7 +16,7 @@ export function row(
     sort_order: sortOrder,
     collapsed,
     task_status: taskStatus,
-    metadata: {},
+    metadata: emptyNodeMetadata(),
     created_at: sortOrder,
     updated_at: sortOrder,
   };

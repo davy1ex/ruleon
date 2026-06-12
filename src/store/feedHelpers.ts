@@ -1,5 +1,6 @@
 import type { DbContext } from "../domain/db/types";
 import { partitionPages } from "../domain/pages/Indexer";
+import { dedupeDateJournalPages } from "../domain/pages/dateJournalPage";
 import {
   formatDatePageTitle,
   getOrCreatePage,
@@ -195,6 +196,7 @@ export async function runFeedRefresh(
     const pagesList = allPages.filter((page) => !isSystemInboxPage(page));
 
     if (isDailyFeedRootId(currentRootId)) {
+      await dedupeDateJournalPages(db);
       const todayPage = await getOrCreatePage(db, formatDatePageTitle());
       const newBlockId = await prepareRootForEditing(db, todayPage.id);
       const rootIds = [todayPage.id, ...state.journalHistoryIds];

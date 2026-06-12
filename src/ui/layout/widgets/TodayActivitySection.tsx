@@ -1,8 +1,4 @@
 import { useEffect } from "react";
-import type {
-  TodayCompletedTask,
-  TodayProject,
-} from "../../../domain/outliner/todayActivity";
 import { navigateToPageAndOpen } from "../../../store/openPageNavigation";
 import { useGamificationStore } from "../../../store/gamificationStore";
 import { useOutlinerStore } from "../../../store/outlinerStore";

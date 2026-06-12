@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { emptyNodeMetadata } from "../../domain/outliner/metadata";
 import type { FlatOutlineNode } from "../../domain/outliner/types";
 import { parseStoredContent } from "../../features/editor/serialization/parseStoredContent";
 import {
@@ -21,7 +22,7 @@ function node(
     sort_order: 0,
     collapsed: 0,
     task_status: null,
-    metadata: {},
+    metadata: emptyNodeMetadata(),
     created_at: 0,
     updated_at: 0,
     depth,

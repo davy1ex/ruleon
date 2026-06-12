@@ -33,7 +33,7 @@ export interface TodayActivity {
 export function isCompletedOnDate(
   completedAt: string,
   dateKey: string,
-  referenceDate = new Date(),
+  _referenceDate = new Date(),
 ): boolean {
   if (!completedAt) {
     return false;

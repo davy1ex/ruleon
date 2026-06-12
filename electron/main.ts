@@ -4,6 +4,7 @@ import {
   globalShortcut,
   ipcMain,
   nativeImage,
+  net,
 } from "electron";
 import { existsSync } from "node:fs";
 import fs from "node:fs/promises";
@@ -139,6 +140,20 @@ function createWindow(): void {
     void win.loadFile(path.join(__dirname, "../dist/index.html"));
   }
 }
+
+ipcMain.handle(
+  "sync:healthCheck",
+  async (_event, endpoint: string): Promise<{ ok: boolean; status: number; body: unknown }> => {
+    const response = await net.fetch(endpoint);
+    let body: unknown = null;
+    try {
+      body = await response.json();
+    } catch {
+      body = null;
+    }
+    return { ok: response.ok, status: response.status, body };
+  },
+);
 
 ipcMain.handle(
   "backup:save",

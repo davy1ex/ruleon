@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { initDatabase, type SyncStatus } from "../domain/db";
 import { seedIfEmpty } from "../domain/outliner/seed";
 import { createNode } from "../domain/outliner/mutations/create";
+import { dedupeDateJournalPages } from "../domain/pages/dateJournalPage";
 import {
   dedupeInboxPages,
   ensureInboxPage,
@@ -234,6 +235,7 @@ export const useOutlinerStore = create<OutlinerState>((set, get) => ({
 
         await ensureInboxPage(context.db);
         await dedupeInboxPages(context.db);
+        await dedupeDateJournalPages(context.db);
 
         if (!loadedSettings.sync.enabled) {
           await seedIfEmpty(context.db);

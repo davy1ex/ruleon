@@ -101,7 +101,7 @@ export function RightMobileDrawer({
           icon: RefreshCw,
           enabled: true,
         },
-      ].filter((widget) => widget.enabled),
+      ].filter((widget) => widget.enabled) as WidgetConfig[],
     [workspacePlugins.calendar, workspacePlugins.gamification, settingsPlugins.pomodoro?.enabled],
   );
 
