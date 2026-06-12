@@ -32,7 +32,7 @@ interface WidgetConfig {
 
 const SHORT_SYNC_LABELS: Record<SyncStatus, string> = {
   connecting: "Connecting",
-  connected: "Synced",
+  connected: "Connected",
   syncing: "Syncing",
   disconnected: "Offline",
   error: "Sync error",

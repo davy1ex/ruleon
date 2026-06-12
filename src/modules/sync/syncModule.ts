@@ -14,8 +14,15 @@ function scheduleSyncRefresh(): void {
   }, 150);
 }
 
+function flushContentOnBackground(): void {
+  if (document.visibilityState === "hidden") {
+    void useOutlinerStore.getState().flushPendingContent();
+  }
+}
+
 export async function init(url: string, apiKey: string): Promise<void> {
   setSyncDataChangedHandler(scheduleSyncRefresh);
+  document.addEventListener("visibilitychange", flushContentOnBackground);
   await startSync(url, apiKey, (status) => {
     useOutlinerStore.getState().setSyncStatus(status);
     if (status === "syncing") {

@@ -2,7 +2,7 @@ import { useOutlinerStore, type SyncStatus } from "../store/outlinerStore";
 
 const STATUS_LABELS: Record<SyncStatus, string> = {
   connecting: "Connecting to sync server…",
-  connected: "Synced — all changes saved",
+  connected: "Connected to sync server",
   syncing: "Syncing changes…",
   disconnected: "Offline — changes saved locally",
   error: "Sync error — check connection",

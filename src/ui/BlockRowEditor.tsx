@@ -142,6 +142,17 @@ const BlockRowEditorInner = memo(function BlockRowEditorInner({
           setFocusedNode(nodeId);
         }
       }}
+      onBlur={(event) => {
+        if (readOnly) {
+          return;
+        }
+        void useOutlinerStore
+          .getState()
+          .flushUpdateContent(
+            nodeId,
+            plainTextToBlockContent(event.target.value),
+          );
+      }}
       onKeyDown={(event) => {
         if (readOnly) {
           return;
