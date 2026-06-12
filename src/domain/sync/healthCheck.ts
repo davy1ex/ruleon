@@ -1,4 +1,4 @@
-import { getHealthApiUrl } from "../../config/sync";
+import { getHealthApiUrl, getSyncUrlValidationError } from "../../config/sync";
 import { getLocalSchemaVersion } from "../db";
 
 export type SyncHealthResult =
@@ -18,7 +18,15 @@ export async function checkSyncServerHealth(
   syncUrl: string,
   apiKey: string,
 ): Promise<SyncHealthResult> {
+  const urlError = getSyncUrlValidationError(syncUrl);
+  if (urlError) {
+    return { ok: false, message: urlError };
+  }
+
   const endpoint = getHealthApiUrl(syncUrl);
+  if (!endpoint) {
+    return { ok: false, message: "Invalid WebSocket URL (use ws:// or wss://)" };
+  }
   const trimmedKey = apiKey.trim();
 
   if (!trimmedKey) {

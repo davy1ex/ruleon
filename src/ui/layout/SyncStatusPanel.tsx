@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getInboxApiUrl, isNativePlatform } from "../../config/sync";
+import { getInboxApiUrl, getSyncUrlValidationError, isNativePlatform } from "../../config/sync";
 import {
   type AppSettings,
   useSettingsStore,
@@ -68,6 +68,11 @@ export function SyncStatusPanel({
   const syncUrlPlaceholder = native
     ? "ws://192.168.x.x:8080/sync"
     : "ws://localhost:8080/sync";
+  const urlError =
+    sync.enabled && sync.url.trim()
+      ? getSyncUrlValidationError(sync.url)
+      : null;
+  const inboxApiUrl = sync.enabled ? getInboxApiUrl(sync.url) : null;
 
   return (
     <div className="space-y-4">
@@ -87,9 +92,14 @@ export function SyncStatusPanel({
             value={sync.url}
             onChange={(e) => updateSync({ url: e.target.value })}
             disabled={!sync.enabled}
-            className="w-full rounded border border-border bg-surface-input px-3 py-1.5 text-sm text-text-normal disabled:bg-surface-secondary disabled:text-text-muted"
+            className={`w-full rounded border bg-surface-input px-3 py-1.5 text-sm text-text-normal disabled:bg-surface-secondary disabled:text-text-muted ${
+              urlError ? "border-status-error" : "border-border"
+            }`}
             placeholder={syncUrlPlaceholder}
           />
+          {urlError ? (
+            <p className="mt-1 text-xs text-status-error">{urlError}</p>
+          ) : null}
           {native && sync.enabled ? (
             <p className="mt-1 text-xs text-text-muted">
               Enter your computer&apos;s LAN IPv4 (from OS network settings).
@@ -97,11 +107,11 @@ export function SyncStatusPanel({
             </p>
           ) : null}
         </label>
-        {sync.enabled ? (
+        {sync.enabled && inboxApiUrl ? (
           <p className="text-xs text-text-muted">
             Inbox API:{" "}
             <code className="rounded bg-surface-input px-1 py-0.5 font-mono text-[11px]">
-              {getInboxApiUrl(sync.url)}
+              {inboxApiUrl}
             </code>
           </p>
         ) : null}
@@ -120,12 +130,12 @@ export function SyncStatusPanel({
         <SyncConnectionTest
           url={sync.url}
           apiKey={sync.apiKey}
-          enabled={sync.enabled}
+          enabled={sync.enabled && !urlError}
         />
         <SyncSetupQr
           url={sync.url}
           apiKey={sync.apiKey}
-          enabled={sync.enabled}
+          enabled={sync.enabled && !urlError}
         />
       </div>
       {standalone ? (

@@ -57,10 +57,14 @@ class StatusReportingTransport implements Transport {
   start(onReady: () => void) {
     this.#onReady = onReady;
     this.#onStatus("connecting");
-    this.#socket = this.#openSocketAndKeepAlive(this.#options);
+    const socket = this.#openSocketAndKeepAlive(this.#options);
+    if (!socket) {
+      return;
+    }
+    this.#socket = socket;
   }
 
-  #openSocketAndKeepAlive(options: TransporOptions) {
+  #openSocketAndKeepAlive(options: TransporOptions): WebSocket | null {
     if (this.#closed) {
       return null;
     }
@@ -74,7 +78,18 @@ class StatusReportingTransport implements Transport {
       }, Math.random() * 2000 + 1000);
     }
 
-    const endpoint = new URL(options.url);
+    let endpoint: URL;
+    try {
+      endpoint = new URL(options.url);
+      if (endpoint.protocol !== "ws:" && endpoint.protocol !== "wss:") {
+        throw new Error("Invalid WebSocket protocol");
+      }
+    } catch {
+      console.warn("Invalid Sync URL format provided.");
+      this.#onStatus("error");
+      return null;
+    }
+
     if (options.schemaVersion != null && options.schemaVersion !== "") {
       endpoint.searchParams.set("schema_version", options.schemaVersion);
     }
