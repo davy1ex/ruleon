@@ -35,9 +35,7 @@ export async function checkSyncServerHealth(
 
   let response: Response;
   try {
-    response = await fetch(endpoint, {
-      headers: { "X-API-Key": trimmedKey },
-    });
+    response = await fetch(endpoint);
   } catch {
     return {
       ok: false,
