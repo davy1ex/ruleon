@@ -32,11 +32,12 @@ const server = http.createServer(app);
 const requireAuth = createHttpAuthMiddleware(API_KEY);
 
 app.use(express.json({ limit: "256kb" }));
-app.use(requireAuth);
 
 app.get("/health", (_req, res) => {
   res.json({ ok: true, schemaVersion: EXPECTED_SCHEMA_VERSION });
 });
+
+app.use(requireAuth);
 
 app.post("/api/inbox", createInboxHandler(DB_FOLDER, SCHEMA_FOLDER));
 

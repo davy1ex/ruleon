@@ -3,6 +3,8 @@ services:
     build:
       context: ..
       dockerfile: sync-server/Dockerfile
+    expose:
+      - "8080"
     ports:
       - "${PORT:-8080}:8080"
     environment:
@@ -17,8 +19,6 @@ services:
           "CMD",
           "curl",
           "-f",
-          "-H",
-          "X-API-Key: ${API_KEY}",
           "http://localhost:8080/health",
         ]
       interval: 30s
